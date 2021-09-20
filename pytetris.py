@@ -15,19 +15,16 @@ BLUE = Shaped('images/red25.png', [[225, 100], [225, 125], [225, 150], [225, 175
 
 class LineShaped:
 
-    def __init__(self):
+    def __init__(self, blocks):
+        self.group = blocks
         self.blocks = [block for block in self.initialize()]
-        self.sort_blocks()
 
     def initialize(self):
         for x, y in BLUE.coordinates:
-            yield Block(BLUE.filename, x, y)
-
-    def sort_blocks(self):
-        self.blocks.sort(key=lambda block: block.y, reverse=True)
-        max_y = self.blocks[0].y
-        self.bottoms = [block for block in self.blocks if block.y == max_y]
-        self.tops = [block for block in self.blocks if block.y != max_y]
+            block = Block(BLUE.filename, x, y)
+            self.group.add(block)
+            yield block
+            # yield Block(BLUE.filename, x, y)
 
     def move_right(self):
         for block in self.blocks:
@@ -38,13 +35,8 @@ class LineShaped:
             block.move_left()
 
     def move_down(self):
-        for bottom_block in self.bottoms:
-            bottom_block.move_down()
-        for top_block in self.tops:
-            if bottom_block.stop:
-                top_block.stop = True
-            else:
-                top_block.move_down()
+        for block in self.blocks:
+            block.move_down()
 
 
 class Block(pygame.sprite.Sprite):
@@ -58,6 +50,7 @@ class Block(pygame.sprite.Sprite):
         self.x = x
         self.y = y
         self.stop = False
+
         # self.rect.left = x
         # self.rect.top = y
 
@@ -70,7 +63,7 @@ class Block(pygame.sprite.Sprite):
     def move_right(self):
         if self.rect.right > BLOCK_AREA_RIGHT:
             self.x = BLOCK_AREA_RIGHT
-        else:
+        elif not self.stop:
             self.x += 25
 
     def move_left(self):
@@ -86,6 +79,19 @@ class Block(pygame.sprite.Sprite):
         else:
             self.y += 25
 
+    def rotate(self):
+        pass
+
+
+class Plate(pygame.sprite.Sprite):
+
+    def __init__(self, filename):
+        super().__init__(self.containers)
+        self.image = pygame.image.load(filename).convert()
+        self.image = pygame.transform.scale(self.image, (250, 5))
+        self.rect = self.image.get_rect()
+        self.rect.left = BLOCK_AREA_LEFT
+        self.rect.top = BLOCK_AREA_BOTTOM
 
 
 def main():
@@ -93,11 +99,14 @@ def main():
     screen = pygame.display.set_mode(SCREEN.size)
     group = pygame.sprite.RenderUpdates()
     blocks = pygame.sprite.Group()
-    # LineShaped.containers = group, blocks
-    Block.containers = group, blocks
+    # Block.containers = group, blocks
+    Block.containers = group
+    Plate.containers = group
     clock = pygame.time.Clock()
     # block = Block('images/red25.png', 300, 0)
-    block = LineShaped()
+    block = LineShaped(blocks)
+    # block = LineShaped()
+    plate = Plate('images/plate.png')
 
     while True:
         clock.tick(60)
@@ -106,8 +115,7 @@ def main():
         group.update()
         group.draw(screen)
 
-        pygame.display.update() 
-  
+        pygame.display.update()
 
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -120,7 +128,12 @@ def main():
                     block.move_left()
                 if event.key == K_DOWN:
                     block.move_down()
+                if event.key == K_UP:
+                    block.rorate()
 
+        if pygame.sprite.spritecollideany(plate, blocks):
+            for block in blocks.sprites():
+                block.stop = True
 
 
 if __name__ == '__main__':

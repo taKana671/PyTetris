@@ -3,20 +3,21 @@ import sys
 from collections import namedtuple
 from pygame.locals import *
 
-SCREEN = Rect(0, 0, 700, 500)
+SCREEN = Rect(0, 0, 700, 600)
 BLOCK_AREA_LEFT = 100
-BLOCK_AREA_RIGHT = 350
-BLOCK_AREA_BOTTOM = 470
+BLOCK_AREA_RIGHT = 300
+BLOCK_AREA_BOTTOM = 430
 
 
 Shaped = namedtuple('Shaped', 'filename coordinates')
-BLUE = Shaped('images/red25.png', [[225, 100], [225, 125], [225, 150], [225, 175]])
+BLUE = Shaped('images/red25.png', [[200, 20], [200, 40], [200, 60], [200, 80]])
 
 
 class LineShaped:
 
-    def __init__(self, blocks):
+    def __init__(self, blocks, plate):
         self.group = blocks
+        self.plate = plate
         self.blocks = [block for block in self.initialize()]
 
     def initialize(self):
@@ -35,8 +36,19 @@ class LineShaped:
             block.move_left()
 
     def move_down(self):
-        for block in self.blocks:
-            block.move_down()
+        is_collide = pygame.sprite.spritecollideany(self.plate, self.group)
+        coords = [340, 360, 380, 400]
+        for i, block in enumerate(self.blocks):
+            block.move_down(is_collide, coords[i])
+
+    def stop(self):
+        if pygame.sprite.spritecollideany(self.plate, self.blocks):
+            for block in self.blocks:
+                block.stop()
+
+
+    def rotate(self):
+        pass
 
 
 class Block(pygame.sprite.Sprite):
@@ -46,6 +58,7 @@ class Block(pygame.sprite.Sprite):
     def __init__(self, filename, x, y):
         super().__init__(self.containers)
         self.image = pygame.image.load(filename).convert()
+        self.image = pygame.transform.scale(self.image, (20, 20))
         self.rect = self.image.get_rect()
         self.x = x
         self.y = y
@@ -55,7 +68,8 @@ class Block(pygame.sprite.Sprite):
         # self.rect.top = y
 
     def update(self):
-        if self.rect.bottom <= BLOCK_AREA_BOTTOM and not self.stop:
+        # if self.rect.bottom < BLOCK_AREA_BOTTOM and not self.stop:
+        if not self.stop and self.rect.bottom < BLOCK_AREA_BOTTOM:
             self.y += self.SPEED
         self.rect.centerx = self.x
         self.rect.centery = self.y
@@ -64,20 +78,30 @@ class Block(pygame.sprite.Sprite):
         if self.rect.right > BLOCK_AREA_RIGHT:
             self.x = BLOCK_AREA_RIGHT
         elif not self.stop:
-            self.x += 25
+            self.x += 20
 
     def move_left(self):
         if self.rect.left < BLOCK_AREA_LEFT:
             self.x = BLOCK_AREA_LEFT
-        else:
-            self.x -= 25
+        elif not self.stop:
+            self.x -= 20
 
-    def move_down(self):
-        if self.rect.bottom > BLOCK_AREA_BOTTOM:
-            self.y = BLOCK_AREA_BOTTOM
+    def move_down(self, is_collide, y):
+        if is_collide:
             self.stop = True
-        else:
-            self.y += 25
+            self.y = y
+            # self.y = self.rect.centery
+        elif not self.stop:
+            self.y += 20
+        # if self.rect.bottom >= BLOCK_AREA_BOTTOM:
+        #     self.y = BLOCK_AREA_BOTTOM
+        #     self.stop = True
+        # elif not self.stop:
+        #     self.y += 25
+
+    def stop(self):
+        self.stop = True
+        self.y = self.rect.centery
 
     def rotate(self):
         pass
@@ -104,9 +128,9 @@ def main():
     Plate.containers = group
     clock = pygame.time.Clock()
     # block = Block('images/red25.png', 300, 0)
-    block = LineShaped(blocks)
-    # block = LineShaped()
     plate = Plate('images/plate.png')
+    block = LineShaped(blocks, plate)
+    # block = LineShaped()
 
     while True:
         clock.tick(60)
@@ -129,11 +153,14 @@ def main():
                 if event.key == K_DOWN:
                     block.move_down()
                 if event.key == K_UP:
-                    block.rorate()
+                    # block.rorate()
+                    pass
 
         if pygame.sprite.spritecollideany(plate, blocks):
-            for block in blocks.sprites():
-                block.stop = True
+            for b in block.blocks:
+                b.stop = True
+
+        
 
 
 if __name__ == '__main__':

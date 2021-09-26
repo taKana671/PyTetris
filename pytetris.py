@@ -1,5 +1,5 @@
 import logging
-
+import copy
 import pygame
 import random
 import sys
@@ -17,28 +17,19 @@ ROWS = 20  # the number of rows
 BLOCK_SIZE = 20
 
 
-Assembled = namedtuple('Assembled', 'filename coordinates')
+BlockSet = namedtuple('BlockSet', 'filename coordinates')
 
 
-class AssembledBlocks(Assembled):
-
-    def update_coords(self):
-        pass
-
-
-
-
-
-BLUE = Shaped('images/blue25.png',
-              [[[-1, 4], [0, 4], [1, 4], [2, 4]], [[0, 4], [0, 5], [0, 6], [0, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[0, 4], [0, 5], [0, 6], [0, 7]]])
-DARK = Shaped('images/dark25.png', [[-1, 4], [0, 4], [1, 4], [1, 5]])
-GREEN = Shaped('images/green25.png', [[-1, 4], [-1, 5], [0, 3], [0, 4]])
-ORANGE = Shaped('images/orange25.png', [[-1, 4], [-1, 5], [0, 5], [1, 5]])
-PURPLE = Shaped('images/purple25.png', [[-1, 4], [0, 3], [0, 4], [0, 5]])
-RED = Shaped('images/red25.png', [[-1, 3], [-1, 4], [0, 4], [0, 5]])
-YELLOW = Shaped('images/yellow25.png', [[-1, 4], [-1, 5], [0, 4], [0, 5]])
+BLUE = BlockSet('images/blue25.png',
+                [[[-1, 4], [0, 4], [1, 4], [2, 4]], [[0, 4], [0, 5], [0, 6], [0, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[0, 4], [0, 5], [0, 6], [0, 7]]])
+DARK = BlockSet('images/dark25.png', [[-1, 4], [0, 4], [1, 4], [1, 5]])
+GREEN = BlockSet('images/green25.png', [[-1, 4], [-1, 5], [0, 3], [0, 4]])
+ORANGE = BlockSet('images/orange25.png', [[-1, 4], [-1, 5], [0, 5], [1, 5]])
+PURPLE = BlockSet('images/purple25.png', [[-1, 4], [0, 3], [0, 4], [0, 5]])
+RED = BlockSet('images/red25.png', [[-1, 3], [-1, 4], [0, 4], [0, 5]])
+YELLOW = BlockSet('images/yellow25.png', [[-1, 4], [-1, 5], [0, 4], [0, 5]])
 # SHAPED_LIST = [BLUE, DARK, GREEN, ORANGE, PURPLE, RED, YELLOW]
-SHAPED_LIST = [BLUE]
+BLOCKSETS = [BLUE]
 
 logger = logging.getLogger('logger')
 logger.setLevel(logging.INFO)
@@ -52,15 +43,17 @@ class PyTetris:
         self.matrix = matrix
         self.screen = screen
         self.stop = False
+        self.toggle = 0
         self.start()
 
     def start(self):
-        index = random.randint(0, len(SHAPED_LIST) - 1)
-        shaped = SHAPED_LIST[index]
+        index = random.randint(0, len(BLOCKSETS) - 1)
+        block_set = BLOCKSETS[index]
         self.blocks = pygame.sprite.Group()
-        for row, col in shaped.coordinates:
-            block = Block(shaped.filename, row, col)
+        for row, col in block_set.coordinates[0]:
+            block = Block(block_set.filename, row, col)
             self.blocks.add(block)
+        self.block_set = copy.deepcopy(block_set.coordinates)
 
     def update(self):
         if not self.stop:
@@ -88,11 +81,13 @@ class PyTetris:
         return block.col < 0 or self.matrix[block.row][block.col]
 
     def judge_right(self, block):
-        logger.info(f'row: {block.row}, col:{block.col}')
         return block.col >= COLS or self.matrix[block.row][block.col]
 
     def judge_down(self, block):
         return block.row >= ROWS or self.matrix[block.row][block.col]
+
+    def judge_up(self, block):
+        return block.row < 0
 
     def judge_ground(self, block):
         return block.row == ROWS - 1 or self.matrix[block.row + 1][block.col]
@@ -101,25 +96,44 @@ class PyTetris:
         for block in self.blocks.sprites():
             self.matrix[block.row][block.col] = block
 
+    def update_row(self, step):
+        for block in self.block_set:
+            for row_col in block:
+                row_col[0] += step
+
+    def update_col(self, step):
+        for block in self.block_set:
+            for row_col in block:
+                row_col[1] += step
+
     def move_right(self):
+        self.update_col(1)
         for block in self.blocks.sprites():
             block.col += 1
 
     def move_left(self):
+        self.update_col(-1)
         for block in self.blocks.sprites():
             block.col -= 1
 
-    def move_down(self):
+    def move_down(self, step=1):
+        self.update_row(step)
         for block in self.blocks.sprites():
-            block.row += 1
+            block.row += step
 
     def move_up(self):
+        self.update_row(-1)
         for block in self.blocks.sprites():
             block.row -= 1
 
     def rotate(self):
-
-        pass
+        self.toggle += 1
+        if self.toggle > 3:
+            self.toggle = 0
+        position = self.block_set[self.toggle]
+        for block, (row, col) in zip(self.blocks.sprites(), position):
+            block.row = row
+            block.col = col
 
     def game_over(self):
         self.sysfont = pygame.font.SysFont(None, 20)
@@ -171,7 +185,6 @@ def main():
         screen.fill((0, 100, 0))
 
         tetris.update()
-
         group.update()
         group.draw(screen)
 
@@ -189,8 +202,7 @@ def main():
                 if event.key == K_DOWN:
                     tetris.move_down()
                 if event.key == K_UP:
-                    # tetris.rorate()
-                    pass
+                    tetris.rotate()
 
 
 if __name__ == '__main__':

@@ -44,6 +44,7 @@ class PyTetris:
         self.screen = screen
         self.stop = False
         self.toggle = 0
+        self.timer = 20
         self.start()
 
     def start(self):
@@ -56,8 +57,11 @@ class PyTetris:
         self.block_set = copy.deepcopy(block_set.coordinates)
 
     def update(self):
-        if not self.stop:
-            self.move_down()
+        self.timer -= 1
+        if self.timer == 0:
+            if not self.stop:
+                self.move_down()
+                self.timer = 20
         if any(self.judge_right(block) for block in self.blocks.sprites()):
             self.move_left()
         if any(self.judge_left(block) for block in self.blocks.sprites()):
@@ -180,7 +184,8 @@ def main():
     clock = pygame.time.Clock()
 
     while True:
-        clock.tick(5)
+        # clock.tick(5)
+        clock.tick(60)
         # pygame.key.set_repeat(10)
         screen.fill((0, 100, 0))
 
@@ -203,6 +208,20 @@ def main():
                     tetris.move_down()
                 if event.key == K_UP:
                     tetris.rotate()
+
+        # pygame.event.pump()
+        # pressed = pygame.key.get_pressed()
+        # if pressed[K_ESCAPE]:
+        #     pygame.quit()
+        #     sys.exit()
+        # if pressed[K_RIGHT]:
+        #     tetris.move_right()
+        # if pressed[K_LEFT]:
+        #     tetris.move_left()
+        # if pressed[K_DOWN]:
+        #     tetris.move_down()
+        # if pressed[K_UP]:
+        #     tetris.rotate()
 
 
 if __name__ == '__main__':

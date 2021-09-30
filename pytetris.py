@@ -39,14 +39,15 @@ logger.addHandler(handler)
 
 class PyTetris:
 
-    def __init__(self, matrix, screen):
+    def __init__(self, screen):
 
-        self.matrix = matrix
+        self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.screen = screen
-        self.stop = False
         self.toggle = 0
         self.timer = 20
+        self.ground = False
         self.start()
+        self.update = self.move
 
     def start(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
@@ -59,12 +60,11 @@ class PyTetris:
             self.block_group.add(block)
         self.block_set = copy.deepcopy(block_set.coordinates)
 
-    def update(self):
+    def move(self):
         self.timer -= 1
         if self.timer == 0:
-            if not self.stop:
-                self.move_down()
-                self.timer = 20
+            self.move_down()
+            self.timer = 20
         if any(self.judge_right(block) for block in self.blocks):
             self.move_left()
         if any(self.judge_left(block) for block in self.blocks):
@@ -74,19 +74,17 @@ class PyTetris:
         if any(self.judge_ground(block) for block in self.blocks):
             self.update_matrix()
             if any(all(row) for row in self.matrix):
-                self.delete_blocks()
+                self.update = self.delete_blocks
             # Game over
             if any(block for block in self.matrix[0]):
-                self.stop = True
-                self.game_over()
+                self.update = self.game_over
             else:
                 self.start()
                 self.move_down()
-        if not self.stop:
-            for block in self.blocks:
-                block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
-                block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
-                # logger.info(f'{[(block.row, block.col) for block in self.matrix[-1] if block is not None]}')
+        for block in self.blocks:
+            block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
+            block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
+            # logger.info(f'{[(block.row, block.col) for block in self.matrix[-1] if block is not None]}')
 
     def judge_left(self, block):
         return block.col < 0 or self.matrix[block.row][block.col]
@@ -114,7 +112,10 @@ class PyTetris:
             for i, row in enumerate(self.matrix):
                 for block in row:
                     if block:
-                        block.row = i
+                        block.row = i - 1
+                        block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
+                        block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
+        self.update = self.move
 
     def update_matrix(self):
         for block in self.blocks:
@@ -184,9 +185,9 @@ class Plate(pygame.sprite.Sprite):
     def __init__(self, filename):
         super().__init__(self.containers)
         self.image = pygame.image.load(filename).convert()
-        self.image = pygame.transform.scale(self.image, (250, 5))
+        self.image = pygame.transform.scale(self.image, (200, 5))
         self.rect = self.image.get_rect()
-        self.rect.left = BLOCK_AREA_LEFT
+        self.rect.left = BLOCK_AREA_LEFT - 10
         self.rect.bottom = BLOCK_AREA_BOTTOM
 
 
@@ -194,22 +195,17 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode(SCREEN.size)
     group = pygame.sprite.RenderUpdates()
-
-    matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
     Block.containers = group
     Plate.containers = group
 
     plate = Plate('images/plate.png')
 
-    tetris = PyTetris(matrix, screen)
+    tetris = PyTetris(screen)
 
     clock = pygame.time.Clock()
 
     while True:
-        # clock.tick(5)
         clock.tick(60)
-        # pygame.time.wait(200)
-        # pygame.key.set_repeat(1, 500)
         screen.fill((0, 100, 0))
 
         tetris.update()
@@ -233,21 +229,20 @@ def main():
                     tetris.rotate()
 
 
-        # if key_timer == 0:
-        #     pygame.event.pump()
-        #     pressed = pygame.key.get_pressed()
-        #     if pressed[K_ESCAPE]:
-        #         pygame.quit()
-        #         sys.exit()
-        #     if pressed[K_RIGHT]:
-        #         tetris.move_right()
-        #     if pressed[K_LEFT]:
-        #         tetris.move_left()
-        #     if pressed[K_DOWN]:
-        #         tetris.move_down()
-        #     if pressed[K_UP]:
-        #         tetris.rotate()
-        #     key_timer = 8
+
+        # pygame.event.pump()
+        # pressed = pygame.key.get_pressed()
+        # if pressed[K_ESCAPE]:
+        #     pygame.quit()
+        #     sys.exit()
+        # if pressed[K_RIGHT]:
+        #     tetris.move_right()
+        # if pressed[K_LEFT]:
+        #     tetris.move_left()
+        # if pressed[K_DOWN]:
+        #     tetris.move_down()
+        # if pressed[K_UP]:
+        #     tetris.rotate()
 
 
 if __name__ == '__main__':

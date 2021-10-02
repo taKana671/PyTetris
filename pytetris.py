@@ -6,6 +6,7 @@ import sys
 from collections import namedtuple
 from pygame.locals import *
 
+
 SCREEN = Rect(0, 0, 700, 600)
 BLOCK_AREA_LEFT = 100
 BLOCK_AREA_RIGHT = 300
@@ -43,9 +44,10 @@ class PyTetris:
         self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.screen = screen
         self.index = 0
-        self.timer = 20
+        self.drop_timer = 20
+        self.ground_timer = 60
         self.start()
-        self.update = self.move
+        self.update = self.update_moving_block
 
     def start(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
@@ -56,31 +58,56 @@ class PyTetris:
             self.blocks.append(block)
         self.block_set = copy.deepcopy(block_set.coordinates)
 
-    def move(self):
-        self.timer -= 1
-        if self.timer == 0:
+    def set_block_center(self, block):
+        block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
+        block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
+
+    def update_moving_block(self):
+        self.drop_timer -= 1
+        if self.drop_timer == 0:
             self.move_down()
-            self.timer = 20
+            self.drop_timer = 20
 
         for block in self.blocks:
-            block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
-            block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
+            self.set_block_center(block)
 
         if any(self.judge_ground(block) for block in self.blocks):
             self.update_matrix()
 
-            # if any(all(row) for row in self.matrix):
-            #     self.update = self.delete_blocks
+            if any(all(row) for row in self.matrix):
+                self.ground_timer = 60
+                self.update = self.update_ground_blocks
             # Game over
-            if any(block for block in self.matrix[0]):
+            elif any(block for block in self.matrix[0]):
                 self.update = self.game_over
             else:
                 self.start()
-                self.move_down()
-                self.timer = 1
-                # for block in self.blocks:
-                #     block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
-                #     block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
+                self.drop_timer = 1
+
+    def update_ground_blocks(self):
+        self.ground_timer -= 1
+        if self.ground_timer == 40:
+            self.delete_blocks()
+        if self.ground_timer == 20:
+            self.move_ground_blocks()
+        if self.ground_timer == 0:
+            self.start()
+            self.drop_timer = 1
+            self.update = self.update_moving_block
+
+    def delete_blocks(self):
+        for row in self.matrix:
+            if all(row):
+                for i, block in enumerate(row):
+                    row[i] = block.kill()
+
+    def move_ground_blocks(self):
+        self.matrix.sort(key=lambda row: 1 if any(row) else 0)
+        for i, row in enumerate(self.matrix):
+            for block in row:
+                if block:
+                    block.row = i
+                    self.set_block_center(block)
 
     def check_matrix(self, block, new_row, new_col):
         # Check whether the block is not contained in self.blocks.
@@ -110,22 +137,6 @@ class PyTetris:
         if block.row == ROWS - 1 or self.check_matrix(block, block.row + 1, block.col):
             return True
         return False
-
-    def delete_blocks(self):
-        for row in self.matrix:
-            if all(row):
-                for i, block in enumerate(row):
-                    row[i] = block.kill()
-
-        if remainings := [row for row in self.matrix if any(row)]:
-            self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS - len(remainings))] + remainings
-            for i, row in enumerate(self.matrix):
-                for block in row:
-                    if block:
-                        block.row = i - 1
-                        block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
-                        block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
-        self.update = self.move
 
     def update_matrix(self):
         for block in self.blocks:

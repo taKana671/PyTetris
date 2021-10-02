@@ -9,7 +9,7 @@ from pygame.locals import *
 SCREEN = Rect(0, 0, 700, 600)
 BLOCK_AREA_LEFT = 100
 BLOCK_AREA_RIGHT = 300
-BLOCK_AREA_BOTTOM = 475
+BLOCK_AREA_BOTTOM = 495
 BLOCK_AREA_TOP = 100
 
 COLS = 10   # the number of columns
@@ -18,7 +18,6 @@ BLOCK_SIZE = 20
 
 
 BlockSet = namedtuple('BlockSet', 'filename coordinates')
-
 
 BLUE = BlockSet('images/blue25.png', [[[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]]])
 DARK = BlockSet('images/dark25.png', [[[-1, 3], [0, 3], [0, 4], [0, 5]], [[-1, 4], [-1, 5], [0, 4], [1, 4]], [[-1, 3], [-1, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [1, 4], [1, 3]]])
@@ -43,9 +42,8 @@ class PyTetris:
 
         self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.screen = screen
-        self.toggle = 0
+        self.index = 0
         self.timer = 20
-        self.ground = False
         self.start()
         self.update = self.move
 
@@ -53,11 +51,9 @@ class PyTetris:
         index = random.randint(0, len(BLOCKSETS) - 1)
         block_set = BLOCKSETS[index]
         self.blocks = []
-        self.block_group = pygame.sprite.Group()
         for row, col in block_set.coordinates[0]:
             block = Block(block_set.filename, row, col)
             self.blocks.append(block)
-            self.block_group.add(block)
         self.block_set = copy.deepcopy(block_set.coordinates)
 
     def move(self):
@@ -65,41 +61,55 @@ class PyTetris:
         if self.timer == 0:
             self.move_down()
             self.timer = 20
-        if any(self.judge_right(block) for block in self.blocks):
-            self.move_left()
-        if any(self.judge_left(block) for block in self.blocks):
-            self.move_right()
-        if any(self.judge_down(block) for block in self.blocks):
-            self.move_up()
+
+        for block in self.blocks:
+            block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
+            block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
+
         if any(self.judge_ground(block) for block in self.blocks):
             self.update_matrix()
-            if any(all(row) for row in self.matrix):
-                self.update = self.delete_blocks
+
+            # if any(all(row) for row in self.matrix):
+            #     self.update = self.delete_blocks
             # Game over
             if any(block for block in self.matrix[0]):
                 self.update = self.game_over
             else:
                 self.start()
                 self.move_down()
-        for block in self.blocks:
-            block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
-            block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
-            # logger.info(f'{[(block.row, block.col) for block in self.matrix[-1] if block is not None]}')
+                self.timer = 1
+                # for block in self.blocks:
+                #     block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
+                #     block.rect.centery = BLOCK_AREA_TOP + block.row * BLOCK_SIZE
+
+    def check_matrix(self, block, new_row, new_col):
+        # Check whether the block is not contained in self.blocks.
+        if (new_row, new_col) not in self.block_set[self.index]:
+            if self.matrix[new_row][new_col]:
+                return True
 
     def judge_left(self, block):
-        return block.col < 0 or self.matrix[block.row][block.col]
+        new_col = block.col - 1
+        if new_col < 0 or self.check_matrix(block, block.row, new_col):
+            return False
+        return True
 
     def judge_right(self, block):
-        return block.col >= COLS or self.matrix[block.row][block.col]
+        new_col = block.col + 1
+        if new_col >= COLS or self.check_matrix(block, block.row, new_col):
+            return False
+        return True
 
     def judge_down(self, block):
-        return block.row >= ROWS or self.matrix[block.row][block.col]
-
-    def judge_up(self, block):
-        return block.row < 0
+        new_row = block.row + 1
+        if new_row >= ROWS or self.check_matrix(block, new_row, block.col):
+            return False
+        return True
 
     def judge_ground(self, block):
-        return block.row == ROWS - 1 or self.matrix[block.row + 1][block.col]
+        if block.row == ROWS - 1 or self.check_matrix(block, block.row + 1, block.col):
+            return True
+        return False
 
     def delete_blocks(self):
         for row in self.matrix:
@@ -121,43 +131,44 @@ class PyTetris:
         for block in self.blocks:
             self.matrix[block.row][block.col] = block
 
-    def update_row(self, step):
+    def update_matrix_row(self, step):
         for block in self.block_set:
             for row_col in block:
                 row_col[0] += step
 
-    def update_col(self, step):
+    def update_matrix_col(self, step):
         for block in self.block_set:
             for row_col in block:
                 row_col[1] += step
 
     def move_right(self):
-        self.update_col(1)
-        for block in self.blocks:
-            block.col += 1
+        if all(self.judge_right(block) for block in self.blocks):
+            self.update_matrix_col(1)
+            for block in self.blocks:
+                block.col += 1
 
     def move_left(self):
-        self.update_col(-1)
-        for block in self.blocks:
-            block.col -= 1
+        if all(self.judge_left(block) for block in self.blocks):
+            self.update_matrix_col(-1)
+            for block in self.blocks:
+                block.col -= 1
 
     def move_down(self, step=1):
-        self.update_row(step)
-        for block in self.blocks:
-            block.row += step
-        # logger.info(f'Down: {[(b.row, b.col) for b in self.blocks.sprites()]}')
+        if all(self.judge_down(block) for block in self.blocks):
+            self.update_matrix_row(step)
+            for block in self.blocks:
+                block.row += step
 
     def move_up(self):
         self.update_row(-1)
         for block in self.blocks:
             block.row -= 1
-        # logger.info(f'Down: {[(b.row, b.col) for b in self.blocks.sprites()]}')
 
     def rotate(self):
-        self.toggle += 1
-        if self.toggle > 3:
-            self.toggle = 0
-        position = self.block_set[self.toggle]
+        self.index += 1
+        if self.index > 3:
+            self.index = 0
+        position = self.block_set[self.index]
         for block, (row, col) in zip(self.blocks, position):
             block.row = row
             block.col = col

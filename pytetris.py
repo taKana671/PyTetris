@@ -181,15 +181,34 @@ class PyTetris:
         for block in self.blocks:
             block.row -= 1
 
+    def judge_rotate(self, rotated_pos):
+        # Check right side
+        if (over := max(col - (COLS - 1) for _, col in rotated_pos)) > 0:
+            if any(self.matrix[row][col - over] for row, col in rotated_pos):
+                return False, 0
+            return True, over
+        # Check left side
+        elif (over := min(col for _, col in rotated_pos)) < 0:
+            if any(self.matrix[row][col - over] for row, col in rotated_pos):
+                return False, 0
+            return True, over
+        else:
+            if any(self.matrix[row][col] for row, col in rotated_pos):
+                return False, 0
+            return True, 0
+
     def rotate(self):
-        self.index += 1
-        if self.index > 3:
-            self.index = 0
-        position = self.block_set[self.index]
-        for block, (row, col) in zip(self.blocks, position):
-            block.row = row
-            block.col = col
-        
+        next_index = self.index + 1
+        if next_index > 3:
+            next_index = 0
+        rotated_pos = self.block_set[next_index]
+        rotatable, over = self.judge_rotate(rotated_pos)
+        if rotatable:
+            self.index = next_index
+            for block, (row, col) in zip(self.blocks, rotated_pos):
+                block.row = row
+                block.col = col - over
+
     def calculate_score(self, deleted_rows):
         if deleted_rows == 1:
             return 40

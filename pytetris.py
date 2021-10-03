@@ -39,23 +39,22 @@ logger.addHandler(handler)
 
 class PyTetris:
 
-    def __init__(self, screen):
+    def __init__(self, screen, score):
 
         self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.screen = screen
+        self.score = score
         self.index = 0
         self.drop_timer = 20
         self.ground_timer = 60
+        self.judge_timer = 20
         self.start()
         self.update = self.update_moving_block
 
     def start(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
         block_set = BLOCKSETS[index]
-        self.blocks = []
-        for row, col in block_set.coordinates[0]:
-            block = Block(block_set.filename, row, col)
-            self.blocks.append(block)
+        self.blocks = [Block(block_set.filename, row, col) for row, col in block_set.coordinates[0]]
         self.block_set = copy.deepcopy(block_set.coordinates)
 
     def set_block_center(self, block):
@@ -71,23 +70,27 @@ class PyTetris:
         for block in self.blocks:
             self.set_block_center(block)
 
-        if any(self.judge_ground(block) for block in self.blocks):
-            self.update_matrix()
+        self.judge_timer -= 1
+        if self.judge_timer == 0:
+            self.judge_timer = 20
+            if any(self.judge_ground(block) for block in self.blocks):
+                self.update_matrix()
 
-            if any(all(row) for row in self.matrix):
-                self.ground_timer = 60
-                self.update = self.update_ground_blocks
-            # Game over
-            elif any(block for block in self.matrix[0]):
-                self.update = self.game_over
-            else:
-                self.start()
-                self.drop_timer = 1
+                if any(all(row) for row in self.matrix):
+                    self.ground_timer = 60
+                    self.update = self.update_ground_blocks
+                # Game over
+                elif any(block for block in self.matrix[0]):
+                    self.update = self.game_over
+                else:
+                    self.start()
+                    self.drop_timer = 1
 
     def update_ground_blocks(self):
         self.ground_timer -= 1
         if self.ground_timer == 40:
-            self.delete_blocks()
+            if deleted_rows := self.delete_blocks():
+                self.score.add_score(self.calculate_score(deleted_rows))
         if self.ground_timer == 20:
             self.move_ground_blocks()
         if self.ground_timer == 0:
@@ -96,10 +99,13 @@ class PyTetris:
             self.update = self.update_moving_block
 
     def delete_blocks(self):
+        deleted_rows = 0
         for row in self.matrix:
             if all(row):
+                deleted_rows += 1
                 for i, block in enumerate(row):
                     row[i] = block.kill()
+        return deleted_rows
 
     def move_ground_blocks(self):
         self.matrix.sort(key=lambda row: 1 if any(row) else 0)
@@ -183,6 +189,16 @@ class PyTetris:
         for block, (row, col) in zip(self.blocks, position):
             block.row = row
             block.col = col
+        
+    def calculate_score(self, deleted_rows):
+        if deleted_rows == 1:
+            return 40
+        elif deleted_rows == 2:
+            return 100
+        elif deleted_rows == 3:
+            return 300
+        else:
+            return 1200
 
     def game_over(self):
         self.sysfont = pygame.font.SysFont(None, 20)
@@ -213,6 +229,24 @@ class Plate(pygame.sprite.Sprite):
         self.rect.bottom = BLOCK_AREA_BOTTOM
 
 
+class Score(pygame.sprite.Sprite):
+
+    def __init__(self, screen, x, y):
+        self.sysfont = pygame.font.SysFont(None, 40)
+        self.screen = screen
+        self.score = 0
+        self.x = x
+        self.y = y
+
+    def draw(self):
+        img = self.sysfont.render(
+            f'SCORE {self.score}', True, (255, 255, 250))
+        self.screen.blit(img, (self.x, self.y))
+
+    def add_score(self, score):
+        self.score += score
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode(SCREEN.size)
@@ -222,7 +256,8 @@ def main():
 
     plate = Plate('images/plate.png')
 
-    tetris = PyTetris(screen)
+    score = Score(screen, 400, 400)
+    tetris = PyTetris(screen, score)
 
     clock = pygame.time.Clock()
 
@@ -233,6 +268,7 @@ def main():
         tetris.update()
         group.update()
         group.draw(screen)
+        score.draw()
 
         pygame.display.update()
 

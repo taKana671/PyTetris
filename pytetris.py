@@ -14,14 +14,14 @@ BLOCK_AREA_BOTTOM = 495
 BLOCK_AREA_TOP = 100
 
 SCORE_AREA_X = 390
-SCORE_AREA_Y = 350
+SCORE_AREA_Y = 360
 
 NEXT_BLOCK_AREA_LEFT = 410
-NEXT_BLOCK_AREA_BOTTOM = 200
+NEXT_BLOCK_AREA_BOTTOM = 230
 DISPLAY_X = 410
-DISPLAY_Y = 100
+DISPLAY_Y = 130
 NEXT_TEXT_X = 440
-NEXT_TEXT_Y = 80
+NEXT_TEXT_Y = 110
 
 
 COLS = 10   # the number of columns
@@ -30,6 +30,13 @@ BLOCK_SIZE = 20
 
 
 BlockSet = namedtuple('BlockSet', 'filename next coordinates')
+ControlButton = namedtuple('ControlButton', 'filename left top')
+
+
+START = ControlButton('images/start_button.png', 630, 300)
+STOP = ControlButton('images/stop_button.png', 630, 10)
+PAUSE = ControlButton('images/pause_button.png', 580, 10)
+
 
 BLUE = BlockSet('images/blue25.png', [[1, 2.5], [2, 2.5], [3, 2.5], [4, 2.5]],
                 [[[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]]])
@@ -47,6 +54,7 @@ YELLOW = BlockSet('images/yellow25.png', [[2, 2], [2, 3], [3, 2], [3, 3]],
                   [[[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]]])
 
 BLOCKSETS = [BLUE, DARK, GREEN, ORANGE, PURPLE, RED, YELLOW]
+# BLOCKSETS = [DARK]
 
 
 logger = logging.getLogger('logger')
@@ -62,26 +70,50 @@ class PyTetris:
         self.score = score
         self.next_block_display = next_block_display
         self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
+        self.set_variables()
+        self.create_button()
+        self.create_block()
+        self.update = self.update_moving_block
+
+    def set_variables(self):
         self.index = 0
         self.drop_timer = 20
         self.ground_timer = 60
         self.judge_timer = 20
-        self.next_bockset = None
-        self.start()
+        self.next_blockset = None
+
+    def initialize(self):
+        """Restart game when start_button is clocked.
+        """
+        for row in self.matrix:
+            for i, block in enumerate(row):
+                if block:
+                    row[i] = block.kill()
+        for block in self.blocks:
+            block.kill()
+        self.score.score = 0
+        self.next_block_display.delete_blocks()
+        self.set_variables()
+        self.create_block()
         self.update = self.update_moving_block
+
+    def create_button(self):
+        # self.start_button = Button(START.filename, START.left, START.top)
+        self.stop_button = Button(STOP.filename, STOP.left, STOP.top)
+        self.pause_button = Button(PAUSE.filename, PAUSE.left, PAUSE.top)
 
     def get_blockset(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
         blockset = BLOCKSETS[index]
         return blockset
 
-    def start(self):
-        if self.next_bockset is None:
+    def create_block(self):
+        if self.next_blockset is None:
             blockset = self.get_blockset()
         else:
-            blockset = self.next_bockset
-        self.next_bockset = self.get_blockset()
-        self.next_block_display.show_next(self.next_bockset)
+            blockset = self.next_blockset
+        self.next_blockset = self.get_blockset()
+        self.next_block_display.show_next(self.next_blockset)
         self.blocks = [Block(blockset.filename, row, col) for row, col in blockset.coordinates[0]]
         self.blockset = copy.deepcopy(blockset.coordinates)
 
@@ -111,7 +143,7 @@ class PyTetris:
                 elif any(block for block in self.matrix[0]):
                     self.update = self.game_over
                 else:
-                    self.start()
+                    self.create_block()
                     self.drop_timer = 1
 
     def update_ground_blocks(self):
@@ -122,7 +154,7 @@ class PyTetris:
         if self.ground_timer == 20:
             self.move_ground_blocks()
         if self.ground_timer == 0:
-            self.start()
+            self.create_block()
             self.drop_timer = 1
             self.update = self.update_moving_block
 
@@ -237,6 +269,14 @@ class PyTetris:
                 block.row = row
                 block.col = col - over
 
+    def click(self, x, y):
+        if self.start_button.rect.collidepoint(x, y):
+            self.update = self.initialize
+        elif self.stop_button.rect.collidepoint(x, y):
+            print('stop button clicked')
+        elif self.pause_button.rect.collidepoint(x, y):
+            print('pause button clicked')
+
     def calculate_score(self, deleted_rows):
         if deleted_rows == 1:
             return 40
@@ -248,9 +288,10 @@ class PyTetris:
             return 1200
 
     def game_over(self):
-        self.sysfont = pygame.font.SysFont(None, 20)
+        self.sysfont = pygame.font.SysFont(None, 40)
         img = self.sysfont.render('Game over', True, (255, 255, 250))
-        self.screen.blit(img, (400, 300))
+        self.screen.blit(img, (450, 300))
+        self.start_button = Button(START.filename, START.left, START.top)
 
 
 class Block(pygame.sprite.Sprite):
@@ -287,7 +328,7 @@ class NextBlockDisplay(pygame.sprite.Sprite):
         self.rect.bottom = NEXT_BLOCK_AREA_BOTTOM
         self.sysfont = pygame.font.SysFont(None, 30)
         self.screen = screen
-        self.next_blocks = None
+        self.next_blocks = []
 
     def draw(self):
         text = self.sysfont.render(
@@ -296,15 +337,27 @@ class NextBlockDisplay(pygame.sprite.Sprite):
 
     def show_next(self, block_set):
         self.delete_blocks()
-        self.next_blocks = [Block(block_set.filename, row, col) for row, col in block_set.next]
-        for block in self.next_blocks:
+        for row, col in block_set.next:
+            block = Block(block_set.filename, row, col)
             block.rect.centerx = DISPLAY_X + block.col * BLOCK_SIZE
             block.rect.centery = DISPLAY_Y + block.row * BLOCK_SIZE
+            self.next_blocks.append(block)
 
     def delete_blocks(self):
-        if self.next_blocks:
-            for block in self.next_blocks:
-                block.kill()
+        while self.next_blocks:
+            block = self.next_blocks.pop()
+            block.kill()
+
+
+class Button(pygame.sprite.Sprite):
+
+    def __init__(self, filename, left, top):
+        super().__init__(self.containers)
+        self.image = pygame.image.load(filename).convert_alpha()
+        self.image = pygame.transform.scale(self.image, (40, 40))
+        self.rect = self.image.get_rect()
+        self.rect.left = left
+        self.rect.top = top
 
 
 class Score(pygame.sprite.Sprite):
@@ -330,12 +383,14 @@ def main():
     Block.containers = group
     Plate.containers = group
     NextBlockDisplay.containers = group
-
+    Button.containers = group
     # plate = Plate('images/plate.png')
     Plate('images/plate.png')
 
     score = Score(screen)
     next_display = NextBlockDisplay('images/plate.png', screen)
+    # start_button = StartButton('images/start_green.png')
+
     tetris = PyTetris(screen, score, next_display)
 
     clock = pygame.time.Clock()
@@ -356,6 +411,11 @@ def main():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == MOUSEBUTTONDOWN and event.button == 1:
+                # x, y = event.pos
+                tetris.click(*event.pos)
+                # if start_button.rect.collidepoint(x, y):
+                #     print('clicked')
             if event.type == KEYDOWN:
                 if event.key == K_RIGHT:
                     tetris.move_right()

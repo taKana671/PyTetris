@@ -1,9 +1,13 @@
-import logging
 import copy
+import glob
+import os
+import pathlib
 import pygame
 import random
+import re
 import sys
 from collections import namedtuple
+from enum import Enum, auto
 from pygame.locals import *
 
 
@@ -23,17 +27,22 @@ DISPLAY_Y = 130
 NEXT_TEXT_X = 440
 NEXT_TEXT_Y = 110
 
+PAUSE_TEXT_X = 280
+PAUSE_TEXT_Y = 230
+PAUSE_IMAGE_LEFT = 250
+PAUSE_IMAGE_TOP = 280
 
 COLS = 10   # the number of columns
 ROWS = 20  # the number of rows
 BLOCK_SIZE = 20
 
+TEXT_WHITE = (255, 255, 250)
 
 BlockSet = namedtuple('BlockSet', 'filename next coordinates')
 ControlButton = namedtuple('ControlButton', 'filename left top')
 
 
-START = ControlButton('images/start_button.png', 630, 300)
+RESTART = ControlButton('images/start_button.png', 310, 320)
 STOP = ControlButton('images/stop_button.png', 630, 10)
 PAUSE = ControlButton('images/pause_button.png', 580, 10)
 
@@ -57,22 +66,21 @@ BLOCKSETS = [BLUE, DARK, GREEN, ORANGE, PURPLE, RED, YELLOW]
 # BLOCKSETS = [DARK]
 
 
-logger = logging.getLogger('logger')
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(filename='test.log')
-logger.addHandler(handler)
+class Status(Enum):
+    PLAY = auto()
+    PAUSE = auto()
 
 
 class PyTetris:
 
-    def __init__(self, screen, score, next_block_display):
+    def __init__(self, screen):
         self.screen = screen
-        self.score = score
-        self.next_block_display = next_block_display
         self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.set_variables()
-        self.create_button()
+        self.create_play_screen()
+        self.create_pause_screen()
         self.create_block()
+        self.status = Status.PLAY
         self.update = self.update_moving_block
 
     def set_variables(self):
@@ -82,25 +90,17 @@ class PyTetris:
         self.judge_timer = 20
         self.next_blockset = None
 
-    def initialize(self):
-        """Restart game when start_button is clocked.
-        """
-        for row in self.matrix:
-            for i, block in enumerate(row):
-                if block:
-                    row[i] = block.kill()
-        for block in self.blocks:
-            block.kill()
-        self.score.score = 0
-        self.next_block_display.delete_blocks()
-        self.set_variables()
-        self.create_block()
-        self.update = self.update_moving_block
+    def create_play_screen(self):
+        _ = Plate('images/plate.png')
+        self.score = Score(self.screen)
+        self.next_block_display = NextBlockDisplay('images/plate.png', self.screen)
+        self.stop_button = StopButton(STOP.filename, STOP.left, STOP.top)
+        self.pause_button = StopButton(PAUSE.filename, PAUSE.left, PAUSE.top)
 
-    def create_button(self):
-        # self.start_button = Button(START.filename, START.left, START.top)
-        self.stop_button = Button(STOP.filename, STOP.left, STOP.top)
-        self.pause_button = Button(PAUSE.filename, PAUSE.left, PAUSE.top)
+    def create_pause_screen(self):
+        _ = Pause('images')
+        self.pause_sysfont = pygame.font.SysFont(None, 50)
+        self.restart_button = RestartButton(RESTART.filename, RESTART.left, RESTART.top)
 
     def get_blockset(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
@@ -270,12 +270,17 @@ class PyTetris:
                 block.col = col - over
 
     def click(self, x, y):
-        if self.start_button.rect.collidepoint(x, y):
-            self.update = self.initialize
-        elif self.stop_button.rect.collidepoint(x, y):
+        if self.stop_button.rect.collidepoint(x, y):
             print('stop button clicked')
         elif self.pause_button.rect.collidepoint(x, y):
-            print('pause button clicked')
+            print('stop button clicked')
+            self.before_method = self.update
+            self.status = Status.PAUSE
+            self.update = self.pause
+        elif self.status == Status.PAUSE and self.restart_button.rect.collidepoint(x, y):
+            print('start button clicked')
+            self.status = Status.PLAY
+            self.update = self.before_method
 
     def calculate_score(self, deleted_rows):
         if deleted_rows == 1:
@@ -288,10 +293,14 @@ class PyTetris:
             return 1200
 
     def game_over(self):
-        self.sysfont = pygame.font.SysFont(None, 40)
-        img = self.sysfont.render('Game over', True, (255, 255, 250))
+        self.sysfont = pygame.font.SysFont(None, 20)
+        img = self.sysfont.render('Game over', True, TEXT_WHITE)
         self.screen.blit(img, (450, 300))
-        self.start_button = Button(START.filename, START.left, START.top)
+
+    def pause(self):
+        img = self.pause_sysfont.render('PAUSE', True, TEXT_WHITE)
+        # self.screen.blit(img, (280, 230))
+        self.screen.blit(img, (PAUSE_TEXT_X, PAUSE_TEXT_Y))
 
 
 class Block(pygame.sprite.Sprite):
@@ -332,7 +341,7 @@ class NextBlockDisplay(pygame.sprite.Sprite):
 
     def draw(self):
         text = self.sysfont.render(
-            'next', True, (255, 255, 250))
+            'next', True, TEXT_WHITE)
         self.screen.blit(text, (NEXT_TEXT_X, NEXT_TEXT_Y))
 
     def show_next(self, block_set):
@@ -351,16 +360,58 @@ class NextBlockDisplay(pygame.sprite.Sprite):
 
 class Button(pygame.sprite.Sprite):
 
-    def __init__(self, filename, left, top):
+    def __init__(self, filename, left, top, width, height):
         super().__init__(self.containers)
         self.image = pygame.image.load(filename).convert_alpha()
-        self.image = pygame.transform.scale(self.image, (40, 40))
+        self.image = pygame.transform.scale(self.image, (width, height))
         self.rect = self.image.get_rect()
         self.rect.left = left
         self.rect.top = top
 
 
-class Score(pygame.sprite.Sprite):
+class StopButton(Button):
+
+    def __init__(self, filename, left, top, width=40, height=40):
+        super().__init__(filename, left, top, width, height)
+
+
+class RestartButton(Button):
+
+    def __init__(self, filename, left, top, width=50, height=50):
+        super().__init__(filename, left, top, width, height)
+
+
+class Pause(pygame.sprite.Sprite):
+
+    def __init__(self, root):
+        super().__init__(self.containers)
+        self.pattern = re.compile('pause\d+\.png')
+        self.images = [image for image in self.create_image(root)]
+        self.images_count = len(self.images)
+        self.timer = 20
+        self.index = 0
+        self.image = self.images[self.index]
+        self.rect = self.image.get_rect()
+        self.rect.left = PAUSE_IMAGE_LEFT
+        self.rect.top = PAUSE_IMAGE_TOP
+
+    def create_image(self, root):
+        for path in glob.iglob(f'{root}/*'):
+            file_path = pathlib.Path(path)
+            if self.pattern.match(file_path.name):
+                yield pygame.image.load(file_path.as_posix()).convert_alpha()
+
+    def update(self):
+        self.timer -= 1
+        if self.timer == 0:
+            if self.index >= self.images_count:
+                self.index = 0
+            self.image = self.images[self.index]
+            self.index += 1
+            self.timer = 20
+
+
+class Score:
 
     def __init__(self, screen):
         self.sysfont = pygame.font.SysFont(None, 40)
@@ -369,7 +420,7 @@ class Score(pygame.sprite.Sprite):
 
     def draw(self):
         text = self.sysfont.render(
-            f'SCORE {self.score}', True, (255, 255, 250))
+            f'SCORE {self.score}', True, TEXT_WHITE)
         self.screen.blit(text, (SCORE_AREA_X, SCORE_AREA_Y))
 
     def add_score(self, score):
@@ -379,20 +430,17 @@ class Score(pygame.sprite.Sprite):
 def main():
     pygame.init()
     screen = pygame.display.set_mode(SCREEN.size)
-    group = pygame.sprite.RenderUpdates()
-    Block.containers = group
-    Plate.containers = group
-    NextBlockDisplay.containers = group
-    Button.containers = group
-    # plate = Plate('images/plate.png')
-    Plate('images/plate.png')
+    play = pygame.sprite.RenderUpdates()
+    pause = pygame.sprite.RenderUpdates()
 
-    score = Score(screen)
-    next_display = NextBlockDisplay('images/plate.png', screen)
-    # start_button = StartButton('images/start_green.png')
+    Block.containers = play
+    Plate.containers = play
+    NextBlockDisplay.containers = play
+    StopButton.containers = play
+    Pause.containers = pause
+    RestartButton.containers = pause
 
-    tetris = PyTetris(screen, score, next_display)
-
+    tetris = PyTetris(screen)
     clock = pygame.time.Clock()
 
     while True:
@@ -400,47 +448,66 @@ def main():
         screen.fill((0, 100, 0))
 
         tetris.update()
-        group.update()
-        group.draw(screen)
-        score.draw()
-        next_display.draw()
 
-        pygame.display.update()
+        if tetris.status == Status.PLAY:
+            play.update()
+            play.draw(screen)
+            tetris.score.draw()
+            tetris.next_block_display.draw()
+        if tetris.status == Status.PAUSE:
+            pause.update()
+            pause.draw(screen)
 
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
             if event.type == MOUSEBUTTONDOWN and event.button == 1:
-                # x, y = event.pos
                 tetris.click(*event.pos)
-                # if start_button.rect.collidepoint(x, y):
-                #     print('clicked')
-            if event.type == KEYDOWN:
-                if event.key == K_RIGHT:
-                    tetris.move_right()
-                if event.key == K_LEFT:
-                    tetris.move_left()
-                if event.key == K_DOWN:
-                    tetris.move_down()
-                if event.key == K_UP:
-                    tetris.rotate()
+            if tetris.status == Status.PLAY:
+                if event.type == KEYDOWN:
+                    if event.key == K_RIGHT:
+                        tetris.move_right()
+                    if event.key == K_LEFT:
+                        tetris.move_left()
+                    if event.key == K_DOWN:
+                        tetris.move_down()
+                    if event.key == K_UP:
+                        tetris.rotate()
+
+        pygame.display.update()
 
 
+    # while True:
+    #     clock.tick(60)
+    #     screen.fill((0, 100, 0))
 
-        # pygame.event.pump()
-        # pressed = pygame.key.get_pressed()
-        # if pressed[K_ESCAPE]:
-        #     pygame.quit()
-        #     sys.exit()
-        # if pressed[K_RIGHT]:
-        #     tetris.move_right()
-        # if pressed[K_LEFT]:
-        #     tetris.move_left()
-        # if pressed[K_DOWN]:
-        #     tetris.move_down()
-        # if pressed[K_UP]:
-        #     tetris.rotate()
+    #     tetris.update()
+    #     play.update()
+    #     play.draw(screen)
+    #     score.draw()
+    #     next_display.draw()
+
+    #     for event in pygame.event.get():
+    #         if event.type == QUIT:
+    #             pygame.quit()
+    #             sys.exit()
+    #         if event.type == MOUSEBUTTONDOWN and event.button == 1:
+    #             # x, y = event.pos
+    #             tetris.click(*event.pos)
+    #         if tetris.status == Status.PLAY:
+    #             if event.type == KEYDOWN:
+    #                 if event.key == K_RIGHT:
+    #                     tetris.move_right()
+    #                 if event.key == K_LEFT:
+    #                     tetris.move_left()
+    #                 if event.key == K_DOWN:
+    #                     tetris.move_down()
+    #                 if event.key == K_UP:
+    #                     tetris.rotate()
+
+    #     pygame.display.update()
+
 
 
 if __name__ == '__main__':

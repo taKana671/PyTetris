@@ -36,6 +36,7 @@ COLS = 10   # the number of columns
 ROWS = 20  # the number of rows
 BLOCK_SIZE = 20
 
+# text color
 TEXT_WHITE = (255, 255, 250)
 
 BlockSet = namedtuple('BlockSet', 'filename next coordinates')
@@ -45,6 +46,7 @@ ControlButton = namedtuple('ControlButton', 'filename left top')
 RESTART = ControlButton('images/start_button.png', 310, 320)
 STOP = ControlButton('images/stop_button.png', 630, 10)
 PAUSE = ControlButton('images/pause_button.png', 580, 10)
+START = ControlButton('images/start_button.png', 310, 320)
 
 
 BLUE = BlockSet('images/blue25.png', [[1, 2.5], [2, 2.5], [3, 2.5], [4, 2.5]],
@@ -67,6 +69,7 @@ BLOCKSETS = [BLUE, DARK, GREEN, ORANGE, PURPLE, RED, YELLOW]
 
 
 class Status(Enum):
+    START = auto()
     PLAY = auto()
     PAUSE = auto()
 
@@ -76,19 +79,22 @@ class PyTetris:
     def __init__(self, screen):
         self.screen = screen
         self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
-        self.set_variables()
+        # self.set_variables()
         self.create_play_screen()
+        self.create_start_screen()
         self.create_pause_screen()
-        self.create_block()
-        self.status = Status.PLAY
-        self.update = self.update_moving_block
+        # self.create_block()
+        self.status = Status.START
+        self.update = self.start_screen.show
 
-    def set_variables(self):
+    def initialize(self):
         self.index = 0
         self.drop_timer = 20
         self.ground_timer = 60
         self.judge_timer = 20
         self.next_blockset = None
+        self.update = self.update_moving_block
+        self.create_block()
 
     def create_play_screen(self):
         _ = Plate('images/plate.png')
@@ -101,6 +107,10 @@ class PyTetris:
         _ = Pause('images')
         self.pause_sysfont = pygame.font.SysFont(None, 50)
         self.restart_button = RestartButton(RESTART.filename, RESTART.left, RESTART.top)
+
+    def create_start_screen(self):
+        self.start_screen = Start('images/start.png', self.screen)
+        self.start_button = StartButton(START.filename, START.left, START.top)
 
     def get_blockset(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
@@ -281,6 +291,9 @@ class PyTetris:
             print('start button clicked')
             self.status = Status.PLAY
             self.update = self.before_method
+        elif self.start_button.rect.collidepoint(x, y):
+            self.status = Status.PLAY
+            self.initialize()
 
     def calculate_score(self, deleted_rows):
         if deleted_rows == 1:
@@ -381,11 +394,16 @@ class RestartButton(Button):
         super().__init__(filename, left, top, width, height)
 
 
+class StartButton(Button):
+
+    def __init__(self, filename, left, top, width=50, height=50):
+        super().__init__(filename, left, top, width, height)
+
+
 class Pause(pygame.sprite.Sprite):
 
     def __init__(self, root):
         super().__init__(self.containers)
-        self.pattern = re.compile('pause\d+\.png')
         self.images = [image for image in self.create_image(root)]
         self.images_count = len(self.images)
         self.timer = 20
@@ -396,10 +414,11 @@ class Pause(pygame.sprite.Sprite):
         self.rect.top = PAUSE_IMAGE_TOP
 
     def create_image(self, root):
+        pattern = re.compile('pause\d+\.png')
         for path in glob.iglob(f'{root}/*'):
             file_path = pathlib.Path(path)
-            if self.pattern.match(file_path.name):
-                yield pygame.image.load(file_path.as_posix()).convert_alpha()
+            if pattern.match(file_path.name):
+                yield pygame.image.load(file_path.as_posix()).convert()
 
     def update(self):
         self.timer -= 1
@@ -409,6 +428,34 @@ class Pause(pygame.sprite.Sprite):
             self.image = self.images[self.index]
             self.index += 1
             self.timer = 20
+
+
+class Start(pygame.sprite.Sprite):
+
+    def __init__(self, filename, screen):
+        super().__init__(self.containers)
+        self.image = pygame.image.load(filename).convert()
+        self.rect = self.image.get_rect()
+        self.rect.left = 50
+        self.rect.top = 50
+        self.screen = screen
+        self.timer = 20
+        self.index = -1
+        self.title_font = pygame.font.SysFont(None, 60)
+        self.message_fonts = (40, 50, 40)
+
+    def show(self):
+        self.timer -= 1
+        if self.timer == 0:
+            self.index += 1
+            if self.index >= len(self.message_fonts):
+                self.index = -1
+            self.timer = 20
+        message_font = pygame.font.SysFont(None, self.message_fonts[self.index])
+        message = message_font.render('START', True, TEXT_WHITE)
+        self.screen.blit(message, (420, 230))
+        title = self.title_font.render('TETRIS', True, TEXT_WHITE)
+        self.screen.blit(title, (380, 100))
 
 
 class Score:
@@ -432,6 +479,7 @@ def main():
     screen = pygame.display.set_mode(SCREEN.size)
     play = pygame.sprite.RenderUpdates()
     pause = pygame.sprite.RenderUpdates()
+    start = pygame.sprite.RenderUpdates()
 
     Block.containers = play
     Plate.containers = play
@@ -439,6 +487,8 @@ def main():
     StopButton.containers = play
     Pause.containers = pause
     RestartButton.containers = pause
+    Start.containers = start
+    StartButton.containers = start
 
     tetris = PyTetris(screen)
     clock = pygame.time.Clock()
@@ -457,6 +507,9 @@ def main():
         if tetris.status == Status.PAUSE:
             pause.update()
             pause.draw(screen)
+        if tetris.status == Status.START:
+            start.update()
+            start.draw(screen)
 
         for event in pygame.event.get():
             if event.type == QUIT:

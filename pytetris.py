@@ -1,71 +1,101 @@
 import copy
 import glob
-import os
-import pathlib
 import pygame
 import random
 import re
 import sys
 from collections import namedtuple
 from enum import Enum, auto
+from pathlib import Path
 from pygame.locals import *
 
 
 SCREEN = Rect(0, 0, 700, 600)
+# block area position
 BLOCK_AREA_LEFT = 100
 BLOCK_AREA_RIGHT = 300
 BLOCK_AREA_BOTTOM = 495
 BLOCK_AREA_TOP = 100
-
-SCORE_AREA_X = 390
-SCORE_AREA_Y = 360
-
+# score position
+SCORE_X = 390
+SCORE_Y = 360
+# next block display
 NEXT_BLOCK_AREA_LEFT = 410
 NEXT_BLOCK_AREA_BOTTOM = 230
 DISPLAY_X = 410
 DISPLAY_Y = 130
 NEXT_TEXT_X = 440
 NEXT_TEXT_Y = 110
-
+# text and image positions in pause screen
 PAUSE_TEXT_X = 280
-PAUSE_TEXT_Y = 230
+PAUSE_TEXT_Y = 210
 PAUSE_IMAGE_LEFT = 250
-PAUSE_IMAGE_TOP = 280
-
-COLS = 10   # the number of columns
-ROWS = 20  # the number of rows
+PAUSE_IMAGE_TOP = 260
+# text positions in start screen
+TITLE_X = 360
+TITLE_Y = 150
+START_TEXT_X = 410
+START_TEXT_Y = 300
+# the number of columns and rows in block area
+COLS = 10
+ROWS = 20
+# block size
 BLOCK_SIZE = 20
-
 # text color
 TEXT_WHITE = (255, 255, 250)
+TEXT_PINK = (235, 107, 212)
+# button position
+RESTART_LEFT = 310
+RESTART_TOP = 330
+STOP_LEFT = 630
+STOP_TOP = 10
+PAUSE_LEFT = 580
+PAUSE_TOP = 10
+START_LEFT = 430
+START_TOP = 350
 
-BlockSet = namedtuple('BlockSet', 'filename next coordinates')
-ControlButton = namedtuple('ControlButton', 'filename left top')
+
+BlockSet = namedtuple('BlockSet', 'file next coordinates')
 
 
-RESTART = ControlButton('images/start_button.png', 310, 320)
-STOP = ControlButton('images/stop_button.png', 630, 10)
-PAUSE = ControlButton('images/pause_button.png', 580, 10)
-START = ControlButton('images/start_button.png', 310, 320)
+class ImageFiles(Enum):
+
+    START = 'button_start.png'
+    STOP = 'button_stop.png'
+    PAUSE = 'button_pause.png'
+    PLATE = 'plate.png'
+    START_SCREEN = 'start.png'
+    BLUE = 'blue25.png'
+    DARK = 'dark25.png'
+    GREEN = 'green25.png'
+    ORANGE = 'orange25.png'
+    PURPLE = 'purple25.png'
+    RED = 'red25.png'
+    YELLOW = 'yellow25.png'
+
+    def __init__(self, name):
+        self._name = name
+
+    @property
+    def path(self):
+        return Path('images', self._name)
 
 
-BLUE = BlockSet('images/blue25.png', [[1, 2.5], [2, 2.5], [3, 2.5], [4, 2.5]],
+BLUE = BlockSet(ImageFiles.BLUE, [[1, 2.5], [2, 2.5], [3, 2.5], [4, 2.5]],
                 [[[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]]])
-DARK = BlockSet('images/dark25.png', [[2, 1.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+DARK = BlockSet(ImageFiles.DARK, [[2, 1.5], [3, 1.5], [3, 2.5], [3, 3.5]],
                 [[[-1, 3], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [1, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 5]], [[-1, 4], [-1, 5], [0, 4], [1, 4]]])
-GREEN = BlockSet('images/green25.png', [[2, 1.5], [2, 2.5], [3, 2.5], [3, 3.5]],
+GREEN = BlockSet(ImageFiles.GREEN, [[2, 1.5], [2, 2.5], [3, 2.5], [3, 3.5]],
                  [[[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]], [[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]]])
-ORANGE = BlockSet('images/orange25.png', [[2, 3.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+ORANGE = BlockSet(ImageFiles.ORANGE, [[2, 3.5], [3, 1.5], [3, 2.5], [3, 3.5]],
                   [[[-1, 5], [0, 3], [0, 4], [0, 5]], [[-1, 3], [-1, 4], [0, 4], [1, 4]], [[-1, 3], [-1, 4], [-1, 5], [0, 3]], [[-1, 4], [0, 4], [1, 4], [1, 5]]])
-PURPLE = BlockSet('images/purple25.png', [[2, 2.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+PURPLE = BlockSet(ImageFiles.PURPLE, [[2, 2.5], [3, 1.5], [3, 2.5], [3, 3.5]],
                   [[[-1, 4], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [0, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 4]], [[-1, 4], [0, 4], [1, 4], [0, 5]]])
-RED = BlockSet('images/red25.png', [[2, 2.5], [2, 3.5], [3, 1.5], [3, 2.5]],
+RED = BlockSet(ImageFiles.RED, [[2, 2.5], [2, 3.5], [3, 1.5], [3, 2.5]],
                [[[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]], [[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]]])
-YELLOW = BlockSet('images/yellow25.png', [[2, 2], [2, 3], [3, 2], [3, 3]],
+YELLOW = BlockSet(ImageFiles.YELLOW, [[2, 2], [2, 3], [3, 2], [3, 3]],
                   [[[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]]])
-
 BLOCKSETS = [BLUE, DARK, GREEN, ORANGE, PURPLE, RED, YELLOW]
-# BLOCKSETS = [DARK]
 
 
 class Status(Enum):
@@ -78,16 +108,28 @@ class PyTetris:
 
     def __init__(self, screen):
         self.screen = screen
-        self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
-        # self.set_variables()
+        self.matrix = None
+        self.blocks = None
         self.create_play_screen()
         self.create_start_screen()
         self.create_pause_screen()
-        # self.create_block()
         self.status = Status.START
-        self.update = self.start_screen.show
+        self.update = self.start_screen.draw
 
     def initialize(self):
+        if self.matrix is None:
+            self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
+        else:
+            for row in self.matrix:
+                for i, block in enumerate(row):
+                    if block:
+                        row[i] = block.kill()
+        if self.blocks is not None:
+            for block in self.blocks:
+                block.kill()
+
+        self.score.score = 0
+        self.next_block_display.delete_blocks()
         self.index = 0
         self.drop_timer = 20
         self.ground_timer = 60
@@ -97,20 +139,21 @@ class PyTetris:
         self.create_block()
 
     def create_play_screen(self):
-        _ = Plate('images/plate.png')
+        _ = Plate(ImageFiles.PLATE.path)
         self.score = Score(self.screen)
-        self.next_block_display = NextBlockDisplay('images/plate.png', self.screen)
-        self.stop_button = StopButton(STOP.filename, STOP.left, STOP.top)
-        self.pause_button = StopButton(PAUSE.filename, PAUSE.left, PAUSE.top)
+        self.next_block_display = NextBlockDisplay(ImageFiles.PLATE.path, self.screen)
+        self.stop_button = StopButton(ImageFiles.STOP.path, STOP_LEFT, STOP_TOP)
+        self.pause_button = StopButton(ImageFiles.PAUSE.path, PAUSE_LEFT, PAUSE_TOP)
 
     def create_pause_screen(self):
-        _ = Pause('images')
-        self.pause_sysfont = pygame.font.SysFont(None, 50)
-        self.restart_button = RestartButton(RESTART.filename, RESTART.left, RESTART.top)
+        self.pause_screen = Pause('images', self.screen)
+        self.restart_button = RestartButton(
+            ImageFiles.START.path, RESTART_LEFT, RESTART_TOP)
 
     def create_start_screen(self):
-        self.start_screen = Start('images/start.png', self.screen)
-        self.start_button = StartButton(START.filename, START.left, START.top)
+        self.start_screen = Start(ImageFiles.START_SCREEN.path, self.screen)
+        self.start_button = StartButton(
+            ImageFiles.START.path, START_LEFT, START_TOP)
 
     def get_blockset(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
@@ -124,7 +167,7 @@ class PyTetris:
             blockset = self.next_blockset
         self.next_blockset = self.get_blockset()
         self.next_block_display.show_next(self.next_blockset)
-        self.blocks = [Block(blockset.filename, row, col) for row, col in blockset.coordinates[0]]
+        self.blocks = [Block(blockset.file.path, row, col) for row, col in blockset.coordinates[0]]
         self.blockset = copy.deepcopy(blockset.coordinates)
 
     def set_block_center(self, block):
@@ -280,18 +323,21 @@ class PyTetris:
                 block.col = col - over
 
     def click(self, x, y):
-        if self.stop_button.rect.collidepoint(x, y):
-            print('stop button clicked')
-        elif self.pause_button.rect.collidepoint(x, y):
-            print('stop button clicked')
+        if self.status == Status.PLAY and \
+                self.stop_button.rect.collidepoint(x, y):
+            self.status = Status.START
+            self.update = self.start_screen.draw
+        elif self.status == Status.PLAY and \
+                self.pause_button.rect.collidepoint(x, y):
             self.before_method = self.update
             self.status = Status.PAUSE
-            self.update = self.pause
-        elif self.status == Status.PAUSE and self.restart_button.rect.collidepoint(x, y):
-            print('start button clicked')
+            self.update = self.pause_screen.draw
+        elif self.status == Status.PAUSE and \
+                self.restart_button.rect.collidepoint(x, y):
             self.status = Status.PLAY
             self.update = self.before_method
-        elif self.start_button.rect.collidepoint(x, y):
+        elif self.status == Status.START and \
+                self.start_button.rect.collidepoint(x, y):
             self.status = Status.PLAY
             self.initialize()
 
@@ -341,9 +387,10 @@ class Plate(pygame.sprite.Sprite):
 
 class NextBlockDisplay(pygame.sprite.Sprite):
 
-    def __init__(self, filename, screen):
+    def __init__(self, path, screen):
         super().__init__(self.containers)
-        self.image = pygame.image.load(filename).convert()
+        # self.image = pygame.image.load(filename).convert()
+        self.image = pygame.image.load(path).convert()
         self.image = pygame.transform.scale(self.image, (100, 5))
         self.rect = self.image.get_rect()
         self.rect.left = NEXT_BLOCK_AREA_LEFT
@@ -360,7 +407,7 @@ class NextBlockDisplay(pygame.sprite.Sprite):
     def show_next(self, block_set):
         self.delete_blocks()
         for row, col in block_set.next:
-            block = Block(block_set.filename, row, col)
+            block = Block(block_set.file.path, row, col)
             block.rect.centerx = DISPLAY_X + block.col * BLOCK_SIZE
             block.rect.centery = DISPLAY_Y + block.row * BLOCK_SIZE
             self.next_blocks.append(block)
@@ -402,8 +449,9 @@ class StartButton(Button):
 
 class Pause(pygame.sprite.Sprite):
 
-    def __init__(self, root):
+    def __init__(self, root, screen):
         super().__init__(self.containers)
+        self.screen = screen
         self.images = [image for image in self.create_image(root)]
         self.images_count = len(self.images)
         self.timer = 20
@@ -412,13 +460,18 @@ class Pause(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.left = PAUSE_IMAGE_LEFT
         self.rect.top = PAUSE_IMAGE_TOP
+        self.pause_sysfont = pygame.font.SysFont(None, 50)
 
     def create_image(self, root):
         pattern = re.compile('pause\d+\.png')
         for path in glob.iglob(f'{root}/*'):
-            file_path = pathlib.Path(path)
+            file_path = Path(path)
             if pattern.match(file_path.name):
                 yield pygame.image.load(file_path.as_posix()).convert()
+
+    def draw(self):
+        text = self.pause_sysfont.render('PAUSE', True, TEXT_WHITE)
+        self.screen.blit(text, (PAUSE_TEXT_X, PAUSE_TEXT_Y))
 
     def update(self):
         self.timer -= 1
@@ -441,21 +494,24 @@ class Start(pygame.sprite.Sprite):
         self.screen = screen
         self.timer = 20
         self.index = -1
-        self.title_font = pygame.font.SysFont(None, 60)
-        self.message_fonts = (40, 50, 40)
+        self.title_font = pygame.font.SysFont(None, 70)
+        self.message_size = (40, 50, 40)
 
-    def show(self):
+    def draw(self):
         self.timer -= 1
         if self.timer == 0:
             self.index += 1
-            if self.index >= len(self.message_fonts):
+            if self.index >= len(self.message_size):
                 self.index = -1
             self.timer = 20
-        message_font = pygame.font.SysFont(None, self.message_fonts[self.index])
-        message = message_font.render('START', True, TEXT_WHITE)
-        self.screen.blit(message, (420, 230))
+
+        size = self.message_size[self.index]
+        message_font = pygame.font.SysFont(None, self.message_size[self.index])
+        message = message_font.render('START', True, TEXT_PINK)
+        delta = 10 if size == 50 else 0
+        self.screen.blit(message, (START_TEXT_X - delta, START_TEXT_Y))
         title = self.title_font.render('TETRIS', True, TEXT_WHITE)
-        self.screen.blit(title, (380, 100))
+        self.screen.blit(title, (TITLE_X, TITLE_Y))
 
 
 class Score:
@@ -468,7 +524,7 @@ class Score:
     def draw(self):
         text = self.sysfont.render(
             f'SCORE {self.score}', True, TEXT_WHITE)
-        self.screen.blit(text, (SCORE_AREA_X, SCORE_AREA_Y))
+        self.screen.blit(text, (SCORE_X, SCORE_Y))
 
     def add_score(self, score):
         self.score += score

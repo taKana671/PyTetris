@@ -1,5 +1,6 @@
 import copy
 import glob
+import itertools
 import pygame
 import random
 import re
@@ -26,12 +27,12 @@ DISPLAY_X = 410
 DISPLAY_Y = 130
 NEXT_TEXT_X = 440
 NEXT_TEXT_Y = 110
-# text and image positions in pause screen
+# pause screen
 PAUSE_TEXT_X = 280
 PAUSE_TEXT_Y = 210
 PAUSE_IMAGE_LEFT = 250
 PAUSE_IMAGE_TOP = 260
-# text positions in start screen
+# start screen
 TITLE_X = 360
 TITLE_Y = 150
 START_TEXT_X = 410
@@ -102,34 +103,25 @@ class Status(Enum):
     START = auto()
     PLAY = auto()
     PAUSE = auto()
+    GAMEOVER = auto()
 
 
 class PyTetris:
 
     def __init__(self, screen):
         self.screen = screen
-        self.matrix = None
-        self.blocks = None
+        self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
+        self.blocks = [None for _ in range(4)]
         self.create_play_screen()
         self.create_start_screen()
         self.create_pause_screen()
+        self.create_gameover_screen()
         self.status = Status.START
         self.update = self.start_screen.draw
 
     def initialize(self):
-        if self.matrix is None:
-            self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
-        else:
-            for row in self.matrix:
-                for i, block in enumerate(row):
-                    if block:
-                        row[i] = block.kill()
-        if self.blocks is not None:
-            for block in self.blocks:
-                block.kill()
-
+        self.all_blocks_clear()
         self.score.score = 0
-        self.next_block_display.delete_blocks()
         self.index = 0
         self.drop_timer = 20
         self.ground_timer = 60
@@ -137,6 +129,13 @@ class PyTetris:
         self.next_blockset = None
         self.update = self.update_moving_block
         self.create_block()
+
+    def all_blocks_clear(self):
+        for row in itertools.chain((r for r in self.matrix), [self.blocks]):
+            for i, block in enumerate(row):
+                if block:
+                    row[i] = block.kill()
+        self.next_block_display.delete_blocks()
 
     def create_play_screen(self):
         _ = Plate(ImageFiles.PLATE.path)
@@ -155,6 +154,11 @@ class PyTetris:
         self.start_button = StartButton(
             ImageFiles.START.path, START_LEFT, START_TOP)
 
+    def create_gameover_screen(self):
+        self.repeat_button = RepeatButton(ImageFiles.START.path, 0, 0)
+        self.gameover_screen = GameOver(
+            'images/gameover.png', self.screen, self.repeat_button)
+
     def get_blockset(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
         blockset = BLOCKSETS[index]
@@ -167,7 +171,8 @@ class PyTetris:
             blockset = self.next_blockset
         self.next_blockset = self.get_blockset()
         self.next_block_display.show_next(self.next_blockset)
-        self.blocks = [Block(blockset.file.path, row, col) for row, col in blockset.coordinates[0]]
+        for i, (row, col) in enumerate(blockset.coordinates[0]):
+            self.blocks[i] = Block(blockset.file.path, row, col)
         self.blockset = copy.deepcopy(blockset.coordinates)
 
     def set_block_center(self, block):
@@ -194,7 +199,9 @@ class PyTetris:
                     self.update = self.update_ground_blocks
                 # Game over
                 elif any(block for block in self.matrix[0]):
-                    self.update = self.game_over
+                    self.status = Status.GAMEOVER
+                    pygame.time.wait(1000)
+                    self.update = self.gameover_screen.draw
                 else:
                     self.create_block()
                     self.drop_timer = 1
@@ -352,9 +359,9 @@ class PyTetris:
             return 1200
 
     def game_over(self):
-        self.sysfont = pygame.font.SysFont(None, 20)
-        img = self.sysfont.render('Game over', True, TEXT_WHITE)
-        self.screen.blit(img, (450, 300))
+        self.sysfont = pygame.font.SysFont(None, 70)
+        img = self.sysfont.render('GAME OVER', True, TEXT_WHITE)
+        self.screen.blit(img, (300, 500))
 
     def pause(self):
         img = self.pause_sysfont.render('PAUSE', True, TEXT_WHITE)
@@ -420,31 +427,43 @@ class NextBlockDisplay(pygame.sprite.Sprite):
 
 class Button(pygame.sprite.Sprite):
 
-    def __init__(self, filename, left, top, width, height):
+    def __init__(self, file_path, width, height):
         super().__init__(self.containers)
-        self.image = pygame.image.load(filename).convert_alpha()
+        self.image = pygame.image.load(file_path).convert_alpha()
         self.image = pygame.transform.scale(self.image, (width, height))
         self.rect = self.image.get_rect()
-        self.rect.left = left
-        self.rect.top = top
 
 
 class StopButton(Button):
 
-    def __init__(self, filename, left, top, width=40, height=40):
-        super().__init__(filename, left, top, width, height)
+    def __init__(self, file_path, left, top, width=40, height=40):
+        super().__init__(file_path, width, height)
+        self.rect.left = left
+        self.rect.top = top
 
 
 class RestartButton(Button):
 
-    def __init__(self, filename, left, top, width=50, height=50):
-        super().__init__(filename, left, top, width, height)
+    def __init__(self, file_path, left, top, width=50, height=50):
+        super().__init__(file_path, width, height)
+        self.rect.left = left
+        self.rect.top = top
 
 
 class StartButton(Button):
 
-    def __init__(self, filename, left, top, width=50, height=50):
-        super().__init__(filename, left, top, width, height)
+    def __init__(self, file_path, left, top, width=50, height=50):
+        super().__init__(file_path, width, height)
+        self.rect.left = left
+        self.rect.top = top
+
+
+class RepeatButton(Button):
+
+    def __init__(self, file_path, center_x, center_y, width=50, height=50):
+        super().__init__(file_path, width, height)
+        self.rect.centerx = 350
+        self.rect.centery = 400
 
 
 class Pause(pygame.sprite.Sprite):
@@ -514,6 +533,42 @@ class Start(pygame.sprite.Sprite):
         self.screen.blit(title, (TITLE_X, TITLE_Y))
 
 
+class GameOver(pygame.sprite.Sprite):
+
+    def __init__(self, file_path, screen, repeat_button):
+        super().__init__(self.containers)
+        self.screen = screen
+        self.image = pygame.image.load(file_path).convert()
+        self.rect = self.image.get_rect()
+        self.top = 0
+        self.is_draw = False
+        self.repeat_button = repeat_button
+        self.timer = 20
+        self.index = -1
+        self.message_size = (40, 50, 40)
+
+    def draw(self):
+        # if self.is_draw:
+        self.timer -= 1
+        if self.timer == 0:
+            self.index += 1
+            if self.index >= len(self.message_size):
+                self.index = -1
+            self.timer = 20
+
+        size = self.message_size[self.index]
+        message_font = pygame.font.SysFont(None, self.message_size[self.index])
+        message = message_font.render('START', True, TEXT_PINK)
+        delta = 10 if size == 50 else 0
+        self.screen.blit(message, (START_TEXT_X - delta, START_TEXT_Y))
+
+    def update(self):
+        if self.top <= 200:
+            self.top += 20
+        self.rect.left = 200
+        self.rect.top = self.top
+
+
 class Score:
 
     def __init__(self, screen):
@@ -536,7 +591,7 @@ def main():
     play = pygame.sprite.RenderUpdates()
     pause = pygame.sprite.RenderUpdates()
     start = pygame.sprite.RenderUpdates()
-
+    gameover = pygame.sprite.RenderUpdates()
     Block.containers = play
     Plate.containers = play
     NextBlockDisplay.containers = play
@@ -545,6 +600,8 @@ def main():
     RestartButton.containers = pause
     Start.containers = start
     StartButton.containers = start
+    GameOver.containers = gameover
+    RepeatButton.containers = gameover
 
     tetris = PyTetris(screen)
     clock = pygame.time.Clock()
@@ -566,6 +623,9 @@ def main():
         if tetris.status == Status.START:
             start.update()
             start.draw(screen)
+        if tetris.status == Status.GAMEOVER:
+            gameover.update()
+            gameover.draw(screen)
 
         for event in pygame.event.get():
             if event.type == QUIT:

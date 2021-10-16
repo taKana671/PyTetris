@@ -45,6 +45,7 @@ BLOCK_SIZE = 20
 # text color
 TEXT_WHITE = (255, 255, 250)
 TEXT_PINK = (235, 107, 212)
+BG_GREEN = (0, 100, 0)
 # button position
 RESTART_LEFT = 310
 RESTART_TOP = 330
@@ -66,6 +67,7 @@ class ImageFiles(Enum):
     PAUSE = 'button_pause.png'
     PLATE = 'plate.png'
     START_SCREEN = 'start.png'
+    GAMEOVER_SCREEN = 'gameover.png'
     BLUE = 'blue25.png'
     DARK = 'dark25.png'
     GREEN = 'green25.png'
@@ -120,6 +122,7 @@ class PyTetris:
         self.update = self.start_screen.draw
 
     def initialize(self):
+        self.update = self.update_moving_block
         self.all_blocks_clear()
         self.score.score = 0
         self.index = 0
@@ -127,7 +130,6 @@ class PyTetris:
         self.ground_timer = 60
         self.judge_timer = 20
         self.next_blockset = None
-        self.update = self.update_moving_block
         self.create_block()
 
     def all_blocks_clear(self):
@@ -157,7 +159,7 @@ class PyTetris:
     def create_gameover_screen(self):
         self.repeat_button = RepeatButton(ImageFiles.START.path, 0, 0)
         self.gameover_screen = GameOver(
-            'images/gameover.png', self.screen, self.repeat_button)
+            ImageFiles.GAMEOVER_SCREEN.path)
 
     def get_blockset(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
@@ -181,7 +183,7 @@ class PyTetris:
 
     def update_moving_block(self):
         self.drop_timer -= 1
-        if self.drop_timer == 0:
+        if self.status == Status.PLAY and self.drop_timer == 0:
             self.move_down()
             self.drop_timer = 20
 
@@ -199,9 +201,8 @@ class PyTetris:
                     self.update = self.update_ground_blocks
                 # Game over
                 elif any(block for block in self.matrix[0]):
+                    self.update_before_gameover = self.update
                     self.status = Status.GAMEOVER
-                    pygame.time.wait(1000)
-                    self.update = self.gameover_screen.draw
                 else:
                     self.create_block()
                     self.drop_timer = 1
@@ -336,17 +337,22 @@ class PyTetris:
             self.update = self.start_screen.draw
         elif self.status == Status.PLAY and \
                 self.pause_button.rect.collidepoint(x, y):
-            self.before_method = self.update
+            self.update_before_pause = self.update
             self.status = Status.PAUSE
             self.update = self.pause_screen.draw
         elif self.status == Status.PAUSE and \
                 self.restart_button.rect.collidepoint(x, y):
             self.status = Status.PLAY
-            self.update = self.before_method
+            self.update = self.update_before_pause
         elif self.status == Status.START and \
                 self.start_button.rect.collidepoint(x, y):
-            self.status = Status.PLAY
             self.initialize()
+            self.status = Status.PLAY
+        elif self.status == Status.GAMEOVER and \
+                self.repeat_button.rect.collidepoint(x, y):
+            self.gameover_screen.initialize()
+            self.initialize()
+            self.status = Status.PLAY
 
     def calculate_score(self, deleted_rows):
         if deleted_rows == 1:
@@ -357,16 +363,6 @@ class PyTetris:
             return 300
         else:
             return 1200
-
-    def game_over(self):
-        self.sysfont = pygame.font.SysFont(None, 70)
-        img = self.sysfont.render('GAME OVER', True, TEXT_WHITE)
-        self.screen.blit(img, (300, 500))
-
-    def pause(self):
-        img = self.pause_sysfont.render('PAUSE', True, TEXT_WHITE)
-        # self.screen.blit(img, (280, 230))
-        self.screen.blit(img, (PAUSE_TEXT_X, PAUSE_TEXT_Y))
 
 
 class Block(pygame.sprite.Sprite):
@@ -535,37 +531,31 @@ class Start(pygame.sprite.Sprite):
 
 class GameOver(pygame.sprite.Sprite):
 
-    def __init__(self, file_path, screen, repeat_button):
+    def __init__(self, file_path):
         super().__init__(self.containers)
-        self.screen = screen
-        self.image = pygame.image.load(file_path).convert()
+        self.image = pygame.image.load(file_path).convert_alpha()
         self.rect = self.image.get_rect()
+        self.initialize()
+
+    def initialize(self):
         self.top = 0
-        self.is_draw = False
-        self.repeat_button = repeat_button
-        self.timer = 20
-        self.index = -1
-        self.message_size = (40, 50, 40)
-
-    def draw(self):
-        # if self.is_draw:
-        self.timer -= 1
-        if self.timer == 0:
-            self.index += 1
-            if self.index >= len(self.message_size):
-                self.index = -1
-            self.timer = 20
-
-        size = self.message_size[self.index]
-        message_font = pygame.font.SysFont(None, self.message_size[self.index])
-        message = message_font.render('START', True, TEXT_PINK)
-        delta = 10 if size == 50 else 0
-        self.screen.blit(message, (START_TEXT_X - delta, START_TEXT_Y))
+        self.is_drop = True
+        self.stop = 0
 
     def update(self):
-        if self.top <= 200:
-            self.top += 20
-        self.rect.left = 200
+        if self.stop <= 2:
+            if self.is_drop:
+                if self.top <= 220:
+                    self.top += 20
+                else:
+                    self.stop += 1
+                    self.is_drop = False
+            if self.stop == 1 and not self.is_drop:
+                if self.top >= 170:
+                    self.top -= 5
+                else:
+                    self.is_drop = True
+        self.rect.left = 130
         self.rect.top = self.top
 
 
@@ -608,7 +598,7 @@ def main():
 
     while True:
         clock.tick(60)
-        screen.fill((0, 100, 0))
+        screen.fill(BG_GREEN)
 
         tetris.update()
 
@@ -624,6 +614,11 @@ def main():
             start.update()
             start.draw(screen)
         if tetris.status == Status.GAMEOVER:
+            play.update()
+            tetris.score.draw()
+            tetris.next_block_display.draw()    
+            play.draw(screen)
+
             gameover.update()
             gameover.draw(screen)
 

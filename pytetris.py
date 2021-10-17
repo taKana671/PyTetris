@@ -37,15 +37,21 @@ TITLE_X = 360
 TITLE_Y = 150
 START_TEXT_X = 410
 START_TEXT_Y = 300
+# gameover screen
+REPEAT_TEXT_X = 290
+REPEAT_TEXT_Y = 330
+GAMEOVER_TOP = 220
+GAMEOVER_BOUND_TOP = 170
+GAMEOVER_LEFT = 130
 # the number of columns and rows in block area
 COLS = 10
 ROWS = 20
 # block size
 BLOCK_SIZE = 20
 # text color
-TEXT_WHITE = (255, 255, 250)
-TEXT_PINK = (235, 107, 212)
-BG_GREEN = (0, 100, 0)
+COLOR_WHITE = (255, 255, 250)
+COLOR_PINK = (235, 107, 212)
+COLOR_GREEN = (0, 100, 0)
 # button position
 RESTART_LEFT = 310
 RESTART_TOP = 330
@@ -55,6 +61,8 @@ PAUSE_LEFT = 580
 PAUSE_TOP = 10
 START_LEFT = 430
 START_TOP = 350
+REPEAT_X = 350
+REPEAT_Y = 400
 
 
 BlockSet = namedtuple('BlockSet', 'file next coordinates')
@@ -106,6 +114,7 @@ class Status(Enum):
     PLAY = auto()
     PAUSE = auto()
     GAMEOVER = auto()
+    REPEAT = auto()
 
 
 class PyTetris:
@@ -122,7 +131,6 @@ class PyTetris:
         self.update = self.start_screen.draw
 
     def initialize(self):
-        self.update = self.update_moving_block
         self.all_blocks_clear()
         self.score.score = 0
         self.index = 0
@@ -130,6 +138,7 @@ class PyTetris:
         self.ground_timer = 60
         self.judge_timer = 20
         self.next_blockset = None
+        self.update = self.update_moving_block
         self.create_block()
 
     def all_blocks_clear(self):
@@ -157,9 +166,9 @@ class PyTetris:
             ImageFiles.START.path, START_LEFT, START_TOP)
 
     def create_gameover_screen(self):
-        self.repeat_button = RepeatButton(ImageFiles.START.path, 0, 0)
+        self.repeat_button = RepeatButton(ImageFiles.START.path, REPEAT_X, REPEAT_Y)
         self.gameover_screen = GameOver(
-            ImageFiles.GAMEOVER_SCREEN.path)
+            ImageFiles.GAMEOVER_SCREEN.path, self.screen)
 
     def get_blockset(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
@@ -187,6 +196,9 @@ class PyTetris:
             self.move_down()
             self.drop_timer = 20
 
+        if (lower := min(block.row for block in self.blocks)) < 0:
+            self.correct_top(lower)
+
         for block in self.blocks:
             self.set_block_center(block)
 
@@ -195,14 +207,15 @@ class PyTetris:
             self.judge_timer = 20
             if any(self.judge_ground(block) for block in self.blocks):
                 self.update_matrix()
-
                 if any(all(row) for row in self.matrix):
                     self.ground_timer = 60
                     self.update = self.update_ground_blocks
                 # Game over
                 elif any(block for block in self.matrix[0]):
-                    self.update_before_gameover = self.update
                     self.status = Status.GAMEOVER
+                    if self.gameover_screen.status == Status.REPEAT:
+                        self.status = Status.REPEAT
+                        self.update = self.gameover_screen.draw
                 else:
                     self.create_block()
                     self.drop_timer = 1
@@ -237,7 +250,8 @@ class PyTetris:
                     self.set_block_center(block)
 
     def check_matrix(self, block, new_row, new_col):
-        # Check whether the block is not contained in self.blocks.
+        """Check whether the block is not contained in self.blocks.
+        """
         if (new_row, new_col) not in self.blockset[self.index]:
             if self.matrix[new_row][new_col]:
                 return True
@@ -265,35 +279,48 @@ class PyTetris:
             return True
         return False
 
+    def correct_top(self, lower):
+        """If the blocks which rows are out of the block area are found in dropping blocks,
+           correct their rows, and kill the blocks already in the matrix to make spaces
+           for the dropping blocks.
+           Args:
+                lower: int, the number of rows out of the block area
+        """
+        for block in self.blocks:
+            block.row += abs(lower)
+        for block in self.blocks:
+            if old_block := self.matrix[block.row][block.col]:
+                old_block.kill()
+
     def update_matrix(self):
         for block in self.blocks:
             self.matrix[block.row][block.col] = block
 
-    def update_matrix_row(self, step):
+    def update_blockset_row(self, step):
         for block in self.blockset:
             for row_col in block:
                 row_col[0] += step
 
-    def update_matrix_col(self, step):
+    def update_blockset_col(self, step):
         for block in self.blockset:
             for row_col in block:
                 row_col[1] += step
 
     def move_right(self):
         if all(self.judge_right(block) for block in self.blocks):
-            self.update_matrix_col(1)
+            self.update_blockset_col(1)
             for block in self.blocks:
                 block.col += 1
 
     def move_left(self):
         if all(self.judge_left(block) for block in self.blocks):
-            self.update_matrix_col(-1)
+            self.update_blockset_col(-1)
             for block in self.blocks:
                 block.col -= 1
 
     def move_down(self, step=1):
         if all(self.judge_down(block) for block in self.blocks):
-            self.update_matrix_row(step)
+            self.update_blockset_row(step)
             for block in self.blocks:
                 block.row += step
 
@@ -348,7 +375,7 @@ class PyTetris:
                 self.start_button.rect.collidepoint(x, y):
             self.initialize()
             self.status = Status.PLAY
-        elif self.status == Status.GAMEOVER and \
+        elif self.status == Status.REPEAT and \
                 self.repeat_button.rect.collidepoint(x, y):
             self.gameover_screen.initialize()
             self.initialize()
@@ -390,10 +417,9 @@ class Plate(pygame.sprite.Sprite):
 
 class NextBlockDisplay(pygame.sprite.Sprite):
 
-    def __init__(self, path, screen):
+    def __init__(self, file_path, screen):
         super().__init__(self.containers)
-        # self.image = pygame.image.load(filename).convert()
-        self.image = pygame.image.load(path).convert()
+        self.image = pygame.image.load(file_path).convert()
         self.image = pygame.transform.scale(self.image, (100, 5))
         self.rect = self.image.get_rect()
         self.rect.left = NEXT_BLOCK_AREA_LEFT
@@ -404,7 +430,7 @@ class NextBlockDisplay(pygame.sprite.Sprite):
 
     def draw(self):
         text = self.sysfont.render(
-            'next', True, TEXT_WHITE)
+            'next', True, COLOR_WHITE)
         self.screen.blit(text, (NEXT_TEXT_X, NEXT_TEXT_Y))
 
     def show_next(self, block_set):
@@ -458,8 +484,8 @@ class RepeatButton(Button):
 
     def __init__(self, file_path, center_x, center_y, width=50, height=50):
         super().__init__(file_path, width, height)
-        self.rect.centerx = 350
-        self.rect.centery = 400
+        self.rect.centerx = center_x
+        self.rect.centery = center_y
 
 
 class Pause(pygame.sprite.Sprite):
@@ -485,7 +511,7 @@ class Pause(pygame.sprite.Sprite):
                 yield pygame.image.load(file_path.as_posix()).convert()
 
     def draw(self):
-        text = self.pause_sysfont.render('PAUSE', True, TEXT_WHITE)
+        text = self.pause_sysfont.render('PAUSE', True, COLOR_WHITE)
         self.screen.blit(text, (PAUSE_TEXT_X, PAUSE_TEXT_Y))
 
     def update(self):
@@ -522,40 +548,64 @@ class Start(pygame.sprite.Sprite):
 
         size = self.message_size[self.index]
         message_font = pygame.font.SysFont(None, self.message_size[self.index])
-        message = message_font.render('START', True, TEXT_PINK)
+        message = message_font.render('START', True, COLOR_PINK)
         delta = 10 if size == 50 else 0
         self.screen.blit(message, (START_TEXT_X - delta, START_TEXT_Y))
-        title = self.title_font.render('TETRIS', True, TEXT_WHITE)
+        title = self.title_font.render('TETRIS', True, COLOR_WHITE)
         self.screen.blit(title, (TITLE_X, TITLE_Y))
 
 
 class GameOver(pygame.sprite.Sprite):
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, screen):
         super().__init__(self.containers)
+        self.screen = screen
         self.image = pygame.image.load(file_path).convert_alpha()
         self.rect = self.image.get_rect()
+        self.index = -1
+        self.message_size = (40, 50, 40)
         self.initialize()
 
     def initialize(self):
+        self.status = None
+        self.timer = 100
         self.top = 0
         self.is_drop = True
         self.stop = 0
 
+    def draw(self):
+        self.timer -= 1
+        if self.timer == 0:
+            self.index += 1
+            if self.index >= len(self.message_size):
+                self.index = -1
+            self.timer = 20
+
+        size = self.message_size[self.index]
+        message_font = pygame.font.SysFont(None, self.message_size[self.index])
+        message = message_font.render('REPEAT', True, COLOR_WHITE)
+        delta = 10 if size == 50 else 0
+        self.screen.blit(message, (REPEAT_TEXT_X - delta, REPEAT_TEXT_Y))
+
     def update(self):
         if self.stop <= 2:
             if self.is_drop:
-                if self.top <= 220:
+                if self.top <= GAMEOVER_TOP:
                     self.top += 20
                 else:
                     self.stop += 1
                     self.is_drop = False
             if self.stop == 1 and not self.is_drop:
-                if self.top >= 170:
+                if self.top >= GAMEOVER_BOUND_TOP:
                     self.top -= 5
                 else:
                     self.is_drop = True
-        self.rect.left = 130
+        if self.status != Status.REPEAT:
+            self.timer -= 1
+            if self.timer == 0:
+                self.timer = 20
+                self.status = Status.REPEAT
+        self.rect.left = GAMEOVER_LEFT
         self.rect.top = self.top
 
 
@@ -568,7 +618,7 @@ class Score:
 
     def draw(self):
         text = self.sysfont.render(
-            f'SCORE {self.score}', True, TEXT_WHITE)
+            f'SCORE {self.score}', True, COLOR_WHITE)
         self.screen.blit(text, (SCORE_X, SCORE_Y))
 
     def add_score(self, score):
@@ -582,6 +632,7 @@ def main():
     pause = pygame.sprite.RenderUpdates()
     start = pygame.sprite.RenderUpdates()
     gameover = pygame.sprite.RenderUpdates()
+    repeat = pygame.sprite.RenderUpdates()
     Block.containers = play
     Plate.containers = play
     NextBlockDisplay.containers = play
@@ -590,15 +641,15 @@ def main():
     RestartButton.containers = pause
     Start.containers = start
     StartButton.containers = start
-    GameOver.containers = gameover
-    RepeatButton.containers = gameover
+    GameOver.containers = gameover, repeat
+    RepeatButton.containers = repeat
 
     tetris = PyTetris(screen)
     clock = pygame.time.Clock()
 
     while True:
         clock.tick(60)
-        screen.fill(BG_GREEN)
+        screen.fill(COLOR_GREEN)
 
         tetris.update()
 
@@ -607,20 +658,22 @@ def main():
             play.draw(screen)
             tetris.score.draw()
             tetris.next_block_display.draw()
-        if tetris.status == Status.PAUSE:
+        elif tetris.status == Status.PAUSE:
             pause.update()
             pause.draw(screen)
-        if tetris.status == Status.START:
+        elif tetris.status == Status.START:
             start.update()
             start.draw(screen)
-        if tetris.status == Status.GAMEOVER:
+        elif tetris.status == Status.GAMEOVER:
             play.update()
             tetris.score.draw()
-            tetris.next_block_display.draw()    
+            tetris.next_block_display.draw()
             play.draw(screen)
-
             gameover.update()
             gameover.draw(screen)
+        elif tetris.status == Status.REPEAT:
+            repeat.update
+            repeat.draw(screen)
 
         for event in pygame.event.get():
             if event.type == QUIT:

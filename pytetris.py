@@ -12,20 +12,20 @@ from pygame.locals import *
 
 
 SCREEN = Rect(0, 0, 700, 600)
-# block area position
-BLOCK_AREA_LEFT = 100
-BLOCK_AREA_RIGHT = 300
+# block area
+BLOCK_AREA_LEFT = 150
+BLOCK_AREA_RIGHT = 350
 BLOCK_AREA_BOTTOM = 495
 BLOCK_AREA_TOP = 100
-# score position
-SCORE_X = 390
-SCORE_Y = 360
-# next block display
-NEXT_BLOCK_AREA_LEFT = 410
+# score area
+SCORE_AREA_X = 430
+SCORE_AREA_Y = 300
+# next block area
+NEXT_BLOCK_AREA_LEFT = 430
 NEXT_BLOCK_AREA_BOTTOM = 230
-DISPLAY_X = 410
+DISPLAY_X = 430
 DISPLAY_Y = 130
-NEXT_TEXT_X = 440
+NEXT_TEXT_X = 430
 NEXT_TEXT_Y = 110
 # pause screen
 PAUSE_TEXT_X = 280
@@ -132,7 +132,7 @@ class PyTetris:
 
     def initialize(self):
         self.all_blocks_clear()
-        self.score.score = 0
+        self.score.initialize()
         self.index = 0
         self.drop_timer = 20
         self.ground_timer = 60
@@ -224,7 +224,7 @@ class PyTetris:
         self.ground_timer -= 1
         if self.ground_timer == 40:
             if deleted_rows := self.delete_blocks():
-                self.score.add_score(self.calculate_score(deleted_rows))
+                self.score.add(deleted_rows)
         if self.ground_timer == 20:
             self.move_ground_blocks()
         if self.ground_timer == 0:
@@ -381,16 +381,6 @@ class PyTetris:
             self.initialize()
             self.status = Status.PLAY
 
-    def calculate_score(self, deleted_rows):
-        if deleted_rows == 1:
-            return 40
-        elif deleted_rows == 2:
-            return 100
-        elif deleted_rows == 3:
-            return 300
-        else:
-            return 1200
-
 
 class Block(pygame.sprite.Sprite):
 
@@ -430,7 +420,7 @@ class NextBlockDisplay(pygame.sprite.Sprite):
 
     def draw(self):
         text = self.sysfont.render(
-            'next', True, COLOR_WHITE)
+            'NEXT', True, COLOR_WHITE)
         self.screen.blit(text, (NEXT_TEXT_X, NEXT_TEXT_Y))
 
     def show_next(self, block_set):
@@ -612,17 +602,47 @@ class GameOver(pygame.sprite.Sprite):
 class Score:
 
     def __init__(self, screen):
-        self.sysfont = pygame.font.SysFont(None, 40)
+        self.sysfont = pygame.font.SysFont(None, 30)
         self.screen = screen
+        self.initialize()
+
+    def initialize(self):
+        self.level = 1
+        self.lines = 0
         self.score = 0
 
     def draw(self):
-        text = self.sysfont.render(
-            f'SCORE {self.score}', True, COLOR_WHITE)
-        self.screen.blit(text, (SCORE_X, SCORE_Y))
+        score_area_y = SCORE_AREA_Y
+        for text, num in zip(['LEVEL', 'LINES', 'SCORE'], [f'{self.level}', f'{self.lines}', f'{self.score}']):
+            line_1 = self.sysfont.render(text, True, COLOR_WHITE)
+            line_2 = self.sysfont.render(num, True, (250, 102, 14))
+            self.screen.blit(line_1, (SCORE_AREA_X, score_area_y))
+            score_area_y += 20
+            self.screen.blit(line_2, (SCORE_AREA_X, score_area_y))
+            score_area_y += 40
 
-    def add_score(self, score):
-        self.score += score
+    def add(self, deleted_rows):
+        """Compute lines, level and score.
+           Args:
+                deleted_rows: int, the number of deleted lines of blocks.
+
+           Clearing 10 lines brings the level up. The level starts with 1.
+           Scoring:
+                1 line   40 * level
+                2 lines  100 * level
+                3 lines  300 * level
+                4 lines  400 * level
+        """
+        self.lines += deleted_rows
+        self.level = self.lines // 10 + 1
+        if deleted_rows == 1:
+            self.score += 40 * self.level
+        elif deleted_rows == 2:
+            self.score += 100 * self.level
+        elif deleted_rows == 3:
+            self.score += 300 * self.level
+        else:
+            self.score += 1200 * self.level
 
 
 def main():

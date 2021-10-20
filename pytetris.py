@@ -249,33 +249,30 @@ class PyTetris:
                     block.row = i
                     self.set_block_center(block)
 
-    def check_matrix(self, block, new_row, new_col):
-        """Check whether the block is not contained in self.blocks.
-        """
-        if (new_row, new_col) not in self.blockset[self.index]:
-            if self.matrix[new_row][new_col]:
-                return True
+    def check_matrix(self, new_row, new_col):
+        if self.matrix[new_row][new_col]:
+            return True
 
     def judge_left(self, block):
         new_col = block.col - 1
-        if new_col < 0 or self.check_matrix(block, block.row, new_col):
+        if new_col < 0 or self.check_matrix(block.row, new_col):
             return False
         return True
 
     def judge_right(self, block):
         new_col = block.col + 1
-        if new_col >= COLS or self.check_matrix(block, block.row, new_col):
+        if new_col >= COLS or self.check_matrix(block.row, new_col):
             return False
         return True
 
     def judge_down(self, block):
         new_row = block.row + 1
-        if new_row >= ROWS or self.check_matrix(block, new_row, block.col):
+        if new_row >= ROWS or self.check_matrix(new_row, block.col):
             return False
         return True
 
     def judge_ground(self, block):
-        if block.row == ROWS - 1 or self.check_matrix(block, block.row + 1, block.col):
+        if block.row == ROWS - 1 or self.check_matrix(block.row + 1, block.col):
             return True
         return False
 

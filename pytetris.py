@@ -10,6 +10,9 @@ from enum import Enum, auto
 from pathlib import Path
 from pygame.locals import *
 
+import numpy as np
+
+from pytetris_utils import update_blockset_row, update_blockset_col
 
 SCREEN = Rect(0, 0, 700, 600)
 # block area
@@ -76,13 +79,13 @@ class ImageFiles(Enum):
     PLATE = 'plate.png'
     START_SCREEN = 'start.png'
     GAMEOVER_SCREEN = 'gameover.png'
-    BLUE = 'blue25.png'
-    DARK = 'dark25.png'
-    GREEN = 'green25.png'
-    ORANGE = 'orange25.png'
-    PURPLE = 'purple25.png'
-    RED = 'red25.png'
-    YELLOW = 'yellow25.png'
+    BLOCK_BLUE = 'block_blue.png'
+    BLOCK_DARK = 'block_dark.png'
+    BLOCK_GREEN = 'block_green.png'
+    BLOCK_ORANGE = 'block_orange.png'
+    BLOCK_PURPLE = 'block_purple.png'
+    BLOCK_RED = 'block_red.png'
+    BLOCK_YELLOW = 'block_yellow.png'
 
     def __init__(self, name):
         self._name = name
@@ -92,20 +95,20 @@ class ImageFiles(Enum):
         return Path('images', self._name)
 
 
-BLUE = BlockSet(ImageFiles.BLUE, [[1, 2.5], [2, 2.5], [3, 2.5], [4, 2.5]],
-                [[[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]]])
-DARK = BlockSet(ImageFiles.DARK, [[2, 1.5], [3, 1.5], [3, 2.5], [3, 3.5]],
-                [[[-1, 3], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [1, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 5]], [[-1, 4], [-1, 5], [0, 4], [1, 4]]])
-GREEN = BlockSet(ImageFiles.GREEN, [[2, 1.5], [2, 2.5], [3, 2.5], [3, 3.5]],
-                 [[[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]], [[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]]])
-ORANGE = BlockSet(ImageFiles.ORANGE, [[2, 3.5], [3, 1.5], [3, 2.5], [3, 3.5]],
-                  [[[-1, 5], [0, 3], [0, 4], [0, 5]], [[-1, 3], [-1, 4], [0, 4], [1, 4]], [[-1, 3], [-1, 4], [-1, 5], [0, 3]], [[-1, 4], [0, 4], [1, 4], [1, 5]]])
-PURPLE = BlockSet(ImageFiles.PURPLE, [[2, 2.5], [3, 1.5], [3, 2.5], [3, 3.5]],
-                  [[[-1, 4], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [0, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 4]], [[-1, 4], [0, 4], [1, 4], [0, 5]]])
-RED = BlockSet(ImageFiles.RED, [[2, 2.5], [2, 3.5], [3, 1.5], [3, 2.5]],
-               [[[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]], [[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]]])
-YELLOW = BlockSet(ImageFiles.YELLOW, [[2, 2], [2, 3], [3, 2], [3, 3]],
-                  [[[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]]])
+BLUE = BlockSet(ImageFiles.BLOCK_BLUE, [[1, 2.5], [2, 2.5], [3, 2.5], [4, 2.5]],
+                np.array([[[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]]]))
+DARK = BlockSet(ImageFiles.BLOCK_DARK, [[2, 1.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+                np.array([[[-1, 3], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [1, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 5]], [[-1, 4], [-1, 5], [0, 4], [1, 4]]]))
+GREEN = BlockSet(ImageFiles.BLOCK_GREEN, [[2, 1.5], [2, 2.5], [3, 2.5], [3, 3.5]],
+                 np.array([[[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]], [[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]]]))
+ORANGE = BlockSet(ImageFiles.BLOCK_ORANGE, [[2, 3.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+                  np.array([[[-1, 5], [0, 3], [0, 4], [0, 5]], [[-1, 3], [-1, 4], [0, 4], [1, 4]], [[-1, 3], [-1, 4], [-1, 5], [0, 3]], [[-1, 4], [0, 4], [1, 4], [1, 5]]]))
+PURPLE = BlockSet(ImageFiles.BLOCK_PURPLE, [[2, 2.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+                  np.array([[[-1, 4], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [0, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 4]], [[-1, 4], [0, 4], [1, 4], [0, 5]]]))
+RED = BlockSet(ImageFiles.BLOCK_RED, [[2, 2.5], [2, 3.5], [3, 1.5], [3, 2.5]],
+               np.array([[[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]], [[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]]]))
+YELLOW = BlockSet(ImageFiles.BLOCK_YELLOW, [[2, 2], [2, 3], [3, 2], [3, 3]],
+                  np.array([[[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]]]))
 BLOCKSETS = [BLUE, DARK, GREEN, ORANGE, PURPLE, RED, YELLOW]
 
 
@@ -294,14 +297,10 @@ class PyTetris:
             self.matrix[block.row][block.col] = block
 
     def update_blockset_row(self, step):
-        for block in self.blockset:
-            for row_col in block:
-                row_col[0] += step
+        update_blockset_row(self.blockset, step)
 
     def update_blockset_col(self, step):
-        for block in self.blockset:
-            for row_col in block:
-                row_col[1] += step
+        update_blockset_col(self.blockset, step)
 
     def move_right(self):
         if all(self.judge_right(block) for block in self.blocks):
@@ -384,7 +383,6 @@ class Block(pygame.sprite.Sprite):
     def __init__(self, filename, row, col):
         super().__init__(self.containers)
         self.image = pygame.image.load(filename).convert()
-        self.image = pygame.transform.scale(self.image, (20, 20))
         self.rect = self.image.get_rect()
         self.row = row
         self.col = col
@@ -415,7 +413,7 @@ class NextBlockDisplay(pygame.sprite.Sprite):
         self.screen = screen
         self.next_blocks = []
 
-    def draw(self):
+    def update(self):
         text = self.sysfont.render(
             'NEXT', True, COLOR_WHITE)
         self.screen.blit(text, (NEXT_TEXT_X, NEXT_TEXT_Y))
@@ -674,7 +672,6 @@ def main():
             play.update()
             play.draw(screen)
             tetris.score.draw()
-            tetris.next_block_display.draw()
         elif tetris.status == Status.PAUSE:
             pause.update()
             pause.draw(screen)
@@ -684,7 +681,6 @@ def main():
         elif tetris.status == Status.GAMEOVER:
             play.update()
             tetris.score.draw()
-            tetris.next_block_display.draw()
             play.draw(screen)
             gameover.update()
             gameover.draw(screen)

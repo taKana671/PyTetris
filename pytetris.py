@@ -95,19 +95,19 @@ class ImageFiles(Enum):
         return Path('images', self._name)
 
 
-BLUE = BlockSet(ImageFiles.BLOCK_BLUE, [[1, 2.5], [2, 2.5], [3, 2.5], [4, 2.5]],
+BLUE = BlockSet(ImageFiles.BLOCK_BLUE, [[0.5, 2], [1.5, 2], [2.5, 2], [3.5, 2]],
                 np.array([[[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]]]))
-DARK = BlockSet(ImageFiles.BLOCK_DARK, [[2, 1.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+DARK = BlockSet(ImageFiles.BLOCK_DARK, [[1.5, 1], [2.5, 1], [2.5, 2], [2.5, 3]],
                 np.array([[[-1, 3], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [1, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 5]], [[-1, 4], [-1, 5], [0, 4], [1, 4]]]))
-GREEN = BlockSet(ImageFiles.BLOCK_GREEN, [[2, 1.5], [2, 2.5], [3, 2.5], [3, 3.5]],
+GREEN = BlockSet(ImageFiles.BLOCK_GREEN, [[1.5, 2], [1.5, 3], [2.5, 1], [2.5, 2]],
                  np.array([[[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]], [[-1, 4], [-1, 5], [0, 3], [0, 4]], [[-1, 3], [0, 3], [0, 4], [1, 4]]]))
-ORANGE = BlockSet(ImageFiles.BLOCK_ORANGE, [[2, 3.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+ORANGE = BlockSet(ImageFiles.BLOCK_ORANGE, [[1.5, 3], [2.5, 1], [2.5, 2], [2.5, 3]],
                   np.array([[[-1, 5], [0, 3], [0, 4], [0, 5]], [[-1, 3], [-1, 4], [0, 4], [1, 4]], [[-1, 3], [-1, 4], [-1, 5], [0, 3]], [[-1, 4], [0, 4], [1, 4], [1, 5]]]))
-PURPLE = BlockSet(ImageFiles.BLOCK_PURPLE, [[2, 2.5], [3, 1.5], [3, 2.5], [3, 3.5]],
+PURPLE = BlockSet(ImageFiles.BLOCK_PURPLE, [[1.5, 2], [2.5, 1], [2.5, 2], [2.5, 3]],
                   np.array([[[-1, 4], [0, 3], [0, 4], [0, 5]], [[-1, 4], [0, 4], [1, 4], [0, 3]], [[-1, 3], [-1, 4], [-1, 5], [0, 4]], [[-1, 4], [0, 4], [1, 4], [0, 5]]]))
-RED = BlockSet(ImageFiles.BLOCK_RED, [[2, 2.5], [2, 3.5], [3, 1.5], [3, 2.5]],
+RED = BlockSet(ImageFiles.BLOCK_RED, [[1.5, 1], [1.5, 2], [2.5, 2], [2.5, 3]],
                np.array([[[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]], [[-1, 3], [-1, 4], [0, 4], [0, 5]], [[-1, 4], [0, 3], [0, 4], [1, 3]]]))
-YELLOW = BlockSet(ImageFiles.BLOCK_YELLOW, [[2, 2], [2, 3], [3, 2], [3, 3]],
+YELLOW = BlockSet(ImageFiles.BLOCK_YELLOW, [[1.5, 1.5], [1.5, 2.5], [2.5, 1.5], [2.5, 2.5]],
                   np.array([[[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]], [[-1, 4], [0, 4], [-1, 5], [0, 5]]]))
 BLOCKSETS = [BLUE, DARK, GREEN, ORANGE, PURPLE, RED, YELLOW]
 
@@ -141,15 +141,14 @@ class PyTetris:
         self.ground_timer = 60
         self.judge_timer = 20
         self.next_blockset = None
-        self.update = self.update_moving_block
         self.create_block()
+        self.update = self.update_moving_block
 
     def all_blocks_clear(self):
         for row in itertools.chain((r for r in self.matrix), [self.blocks]):
             for i, block in enumerate(row):
                 if block:
                     row[i] = block.kill()
-        self.next_block_display.delete_blocks()
 
     def create_play_screen(self):
         _ = Plate(ImageFiles.PLATE.path)
@@ -173,18 +172,18 @@ class PyTetris:
         self.gameover_screen = GameOver(
             ImageFiles.GAMEOVER_SCREEN.path, self.screen)
 
-    def get_blockset(self):
+    def get_blockset_index(self):
         index = random.randint(0, len(BLOCKSETS) - 1)
-        blockset = BLOCKSETS[index]
-        return blockset
+        return index
 
     def create_block(self):
         if self.next_blockset is None:
-            blockset = self.get_blockset()
+            blockset = BLOCKSETS[self.get_blockset_index()]
         else:
             blockset = self.next_blockset
-        self.next_blockset = self.get_blockset()
-        self.next_block_display.show_next(self.next_blockset)
+        blockset_index = self.get_blockset_index()
+        self.next_blockset = BLOCKSETS[blockset_index]
+        self.next_block_display.draw(blockset_index)
         for i, (row, col) in enumerate(blockset.coordinates[0]):
             self.blocks[i] = Block(blockset.file.path, row, col)
         self.blockset = copy.deepcopy(blockset.coordinates)
@@ -296,27 +295,21 @@ class PyTetris:
         for block in self.blocks:
             self.matrix[block.row][block.col] = block
 
-    def update_blockset_row(self, step):
-        update_blockset_row(self.blockset, step)
-
-    def update_blockset_col(self, step):
-        update_blockset_col(self.blockset, step)
-
-    def move_right(self):
+    def move_right(self, step=1):
         if all(self.judge_right(block) for block in self.blocks):
-            self.update_blockset_col(1)
+            update_blockset_col(self.blockset, step)
             for block in self.blocks:
                 block.col += 1
 
-    def move_left(self):
+    def move_left(self, step=-1):
         if all(self.judge_left(block) for block in self.blocks):
-            self.update_blockset_col(-1)
+            update_blockset_col(self.blockset, step)
             for block in self.blocks:
                 block.col -= 1
 
     def move_down(self, step=1):
         if all(self.judge_down(block) for block in self.blocks):
-            self.update_blockset_row(step)
+            update_blockset_row(self.blockset, step)
             for block in self.blocks:
                 block.row += step
 
@@ -411,25 +404,27 @@ class NextBlockDisplay(pygame.sprite.Sprite):
         self.rect.bottom = NEXT_BLOCK_AREA_BOTTOM
         self.sysfont = pygame.font.SysFont(None, 30)
         self.screen = screen
-        self.next_blocks = []
+        self.assemble_blocks()
+
+    def assemble_blocks(self):
+        self.images = {}
+        for i, blockset in enumerate(BLOCKSETS):
+            self.images[i] = tuple(
+                pygame.image.load(blockset.file.path).convert() for _ in range(4))
 
     def update(self):
         text = self.sysfont.render(
             'NEXT', True, COLOR_WHITE)
         self.screen.blit(text, (NEXT_TEXT_X, NEXT_TEXT_Y))
 
-    def show_next(self, block_set):
-        self.delete_blocks()
-        for row, col in block_set.next:
-            block = Block(block_set.file.path, row, col)
-            block.rect.centerx = DISPLAY_X + block.col * BLOCK_SIZE
-            block.rect.centery = DISPLAY_Y + block.row * BLOCK_SIZE
-            self.next_blocks.append(block)
+        for block, (row, col) in zip(self.next_blocks, self.positions):
+            self.screen.blit(
+                block, (DISPLAY_X + col * BLOCK_SIZE, DISPLAY_Y + row * BLOCK_SIZE))
 
-    def delete_blocks(self):
-        while self.next_blocks:
-            block = self.next_blocks.pop()
-            block.kill()
+    def draw(self, blockset_index):
+        self.next_blocks = self.images[blockset_index]
+        blockset = BLOCKSETS[blockset_index]
+        self.positions = blockset.next
 
 
 class Button(pygame.sprite.Sprite):

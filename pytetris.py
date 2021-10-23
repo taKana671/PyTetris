@@ -14,6 +14,7 @@ import numpy as np
 
 from pytetris_utils import update_blockset_row, update_blockset_col
 
+
 SCREEN = Rect(0, 0, 700, 600)
 # block area
 BLOCK_AREA_LEFT = 150
@@ -86,6 +87,13 @@ class ImageFiles(Enum):
     BLOCK_PURPLE = 'block_purple.png'
     BLOCK_RED = 'block_red.png'
     BLOCK_YELLOW = 'block_yellow.png'
+    PAUSE_0 = 'pause0.png'
+    PAUSE_1 = 'pause1.png'
+    PAUSE_2 = 'pause2.png'
+    PAUSE_3 = 'pause3.png'
+    PAUSE_4 = 'pause4.png'
+    PAUSE_5 = 'pause5.png'
+    PAUSE_6 = 'pause6.png'
 
     def __init__(self, name):
         self._name = name
@@ -118,6 +126,8 @@ class Status(Enum):
     PAUSE = auto()
     GAMEOVER = auto()
     REPEAT = auto()
+    WAITING = auto()
+    DROPPING = auto()
 
 
 class PyTetris:
@@ -130,6 +140,7 @@ class PyTetris:
         self.create_start_screen()
         self.create_pause_screen()
         self.create_gameover_screen()
+        self.block_status = Status.WAITING
         self.status = Status.START
 
     def initialize(self):
@@ -141,6 +152,8 @@ class PyTetris:
         self.judge_timer = 20
         self.next_blockset = None
         self.create_block()
+        self.block_status = Status.DROPPING
+        self.status = Status.PLAY
         self.update = self.update_moving_block
 
     def all_blocks_clear(self):
@@ -180,9 +193,10 @@ class PyTetris:
             blockset = BLOCKSETS[self.get_blockset_index()]
         else:
             blockset = self.next_blockset
+
         blockset_index = self.get_blockset_index()
         self.next_blockset = BLOCKSETS[blockset_index]
-        self.next_block_display.draw(blockset_index)
+        self.next_block_display.set_images(blockset_index)
         for i, (row, col) in enumerate(blockset.coordinates[0]):
             self.blocks[i] = Block(blockset.file.path, row, col)
         self.blockset = copy.deepcopy(blockset.coordinates)
@@ -210,6 +224,7 @@ class PyTetris:
                 self.update_matrix()
                 if any(all(row) for row in self.matrix):
                     self.ground_timer = 60
+                    self.block_status = Status.WAITING
                     self.update = self.update_ground_blocks
                 # Game over
                 elif any(block for block in self.matrix[0]):
@@ -228,6 +243,7 @@ class PyTetris:
         if self.ground_timer == 0:
             self.create_block()
             self.drop_timer = 1
+            self.block_status = Status.DROPPING
             self.update = self.update_moving_block
 
     def delete_blocks(self):
@@ -315,6 +331,10 @@ class PyTetris:
             block.row -= 1
 
     def judge_rotate(self, rotated_pos):
+        """Check whether blocks can be rotated or not.
+           Args:
+                rotated_pos: list, the positions after rotated
+        """
         # Check right side
         if (over := max(col - (COLS - 1) for _, col in rotated_pos)) > 0:
             if any(self.matrix[row][col - over] for row, col in rotated_pos):
@@ -343,26 +363,31 @@ class PyTetris:
                 block.col = col - over
 
     def click(self, x, y):
+        """Changes status, when a button is clicked.
+        """
+        # stop button on play screen
         if self.status == Status.PLAY and \
                 self.stop_button.rect.collidepoint(x, y):
             self.status = Status.START
+        # pause button on play screen
         elif self.status == Status.PLAY and \
                 self.pause_button.rect.collidepoint(x, y):
             self.update_before_pause = self.update
             self.status = Status.PAUSE
+        # restart button on pause screen
         elif self.status == Status.PAUSE and \
                 self.restart_button.rect.collidepoint(x, y):
             self.status = Status.PLAY
             self.update = self.update_before_pause
+        # start button on start screen
         elif self.status == Status.START and \
                 self.start_button.rect.collidepoint(x, y):
             self.initialize()
-            self.status = Status.PLAY
+        # repeat button on gameover screen
         elif self.status == Status.REPEAT and \
                 self.repeat_button.rect.collidepoint(x, y):
             self.gameover_screen.initialize()
             self.initialize()
-            self.status = Status.PLAY
 
 
 class Block(pygame.sprite.Sprite):
@@ -415,7 +440,7 @@ class NextBlockDisplay(pygame.sprite.Sprite):
             self.screen.blit(
                 block, (DISPLAY_X + col * BLOCK_SIZE, DISPLAY_Y + row * BLOCK_SIZE))
 
-    def draw(self, blockset_index):
+    def set_images(self, blockset_index):
         self.next_blocks = self.images[blockset_index]
         blockset = BLOCKSETS[blockset_index]
         self.positions = blockset.next
@@ -468,6 +493,7 @@ class Pause(pygame.sprite.Sprite):
         super().__init__(self.containers)
         self.screen = screen
         self.images = [image for image in self.create_image(root)]
+        print(len(self.images))
         self.images_count = len(self.images)
         self.timer = 20
         self.index = 0
@@ -479,10 +505,9 @@ class Pause(pygame.sprite.Sprite):
 
     def create_image(self, root):
         pattern = re.compile('pause\d+\.png')
-        for path in glob.iglob(f'{root}/*'):
-            file_path = Path(path)
-            if pattern.match(file_path.name):
-                yield pygame.image.load(file_path.as_posix()).convert()
+        for file in ImageFiles:
+            if pattern.match(file.value):
+                yield pygame.image.load(file.path).convert()
 
     def draw_text(self):
         text = self.pause_sysfont.render('PAUSE', True, COLOR_WHITE)
@@ -699,7 +724,7 @@ def main():
                 sys.exit()
             if event.type == MOUSEBUTTONDOWN and event.button == 1:
                 tetris.click(*event.pos)
-            if tetris.status == Status.PLAY:
+            if tetris.status == Status.PLAY and tetris.block_status == Status.DROPPING:
                 if event.type == KEYDOWN:
                     if event.key == K_RIGHT:
                         tetris.move_right()

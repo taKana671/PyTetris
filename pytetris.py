@@ -147,9 +147,11 @@ class PyTetris:
         self.all_blocks_clear()
         self.score.initialize()
         self.index = 0
-        self.drop_timer = 20
+        self.level = self.score.level
+        self.timer_value = 40
+        self.drop_timer = self.timer_value
         self.ground_timer = 60
-        self.judge_timer = 20
+        self.judge_timer = self.timer_value
         self.next_blockset = None
         self.create_block()
         self.block_status = Status.DROPPING
@@ -209,8 +211,7 @@ class PyTetris:
         self.drop_timer -= 1
         if self.status == Status.PLAY and self.drop_timer == 0:
             self.move_down()
-            self.drop_timer = 20
-
+            self.drop_timer = self.timer_value
         if (lower := min(block.row for block in self.blocks)) < 0:
             self.correct_top(lower)
 
@@ -219,7 +220,7 @@ class PyTetris:
 
         self.judge_timer -= 1
         if self.judge_timer == 0:
-            self.judge_timer = 20
+            self.judge_timer = self.timer_value
             if any(self.judge_ground(block) for block in self.blocks):
                 self.update_matrix()
                 if any(all(row) for row in self.matrix):
@@ -238,6 +239,9 @@ class PyTetris:
         if self.ground_timer == 40:
             if deleted_rows := self.delete_blocks():
                 self.score.add(deleted_rows)
+                if self.level != self.score.level:
+                    self.timer_value -= 2
+                    self.level = self.score.level
         if self.ground_timer == 20:
             self.move_ground_blocks()
         if self.ground_timer == 0:
@@ -493,7 +497,6 @@ class Pause(pygame.sprite.Sprite):
         super().__init__(self.containers)
         self.screen = screen
         self.images = [image for image in self.create_image(root)]
-        print(len(self.images))
         self.images_count = len(self.images)
         self.timer = 20
         self.index = 0
@@ -690,6 +693,7 @@ def main():
 
     tetris = PyTetris(screen)
     clock = pygame.time.Clock()
+    pygame.key.set_repeat(500, 100)
 
     while True:
         clock.tick(60)

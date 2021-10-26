@@ -103,6 +103,19 @@ class ImageFiles(Enum):
         return Path('images', self._name)
 
 
+class SoundFiles(Enum):
+
+    ROTATE = 'rotate.wav'
+    BREAK = 'break.wav'
+
+    def __init__(self, name):
+        self._name = name
+
+    @property
+    def path(self):
+        return Path('sounds', self._name)
+
+
 BLUE = BlockSet(ImageFiles.BLOCK_BLUE, [[0.5, 2], [1.5, 2], [2.5, 2], [3.5, 2]],
                 np.array([[[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]], [[-1, 4], [0, 4], [1, 4], [2, 4]], [[-1, 4], [-1, 5], [-1, 6], [-1, 7]]]))
 DARK = BlockSet(ImageFiles.BLOCK_DARK, [[1.5, 1], [2.5, 1], [2.5, 2], [2.5, 3]],
@@ -140,13 +153,13 @@ class PyTetris:
         self.create_start_screen()
         self.create_pause_screen()
         self.create_gameover_screen()
+        self.create_sounds()
         self.block_status = Status.WAITING
         self.status = Status.START
 
     def initialize(self):
         self.all_blocks_clear()
         self.score.initialize()
-        self.index = 0
         self.level = self.score.level
         self.timer_value = 40
         self.drop_timer = self.timer_value
@@ -163,6 +176,10 @@ class PyTetris:
             for i, block in enumerate(row):
                 if block:
                     row[i] = block.kill()
+
+    def create_sounds(self):
+        self.rotate_sound = pygame.mixer.Sound(SoundFiles.ROTATE.path)
+        self.break_sound = pygame.mixer.Sound(SoundFiles.BREAK.path)
 
     def create_play_screen(self):
         _ = Plate(ImageFiles.PLATE.path)
@@ -202,6 +219,8 @@ class PyTetris:
         for i, (row, col) in enumerate(blockset.coordinates[0]):
             self.blocks[i] = Block(blockset.file.path, row, col)
         self.blockset = copy.deepcopy(blockset.coordinates)
+        # self.index is used to rotate blocks.
+        self.index = 0
 
     def set_block_center(self, block):
         block.rect.centerx = BLOCK_AREA_LEFT + block.col * BLOCK_SIZE
@@ -238,6 +257,7 @@ class PyTetris:
         self.ground_timer -= 1
         if self.ground_timer == 40:
             if deleted_rows := self.delete_blocks():
+                self.break_sound.play()
                 self.score.add(deleted_rows)
                 if self.level != self.score.level:
                     self.timer_value -= 2
@@ -358,9 +378,11 @@ class PyTetris:
         next_index = self.index + 1
         if next_index > 3:
             next_index = 0
+        print(next_index)
         rotated_pos = self.blockset[next_index]
         rotatable, over = self.judge_rotate(rotated_pos)
         if rotatable:
+            self.rotate_sound.play()
             self.index = next_index
             for block, (row, col) in zip(self.blocks, rotated_pos):
                 block.row = row

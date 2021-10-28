@@ -72,7 +72,18 @@ REPEAT_Y = 400
 BlockSet = namedtuple('BlockSet', 'file next coordinates')
 
 
-class ImageFiles(Enum):
+class Files(Enum):
+
+    def __init__(self, name, dir):
+        self._name = name
+        self._dir = dir
+
+    @property
+    def path(self):
+        return Path(self._dir, self._name)
+
+
+class ImageFiles(Files):
 
     START = 'button_start.png'
     STOP = 'button_stop.png'
@@ -96,24 +107,17 @@ class ImageFiles(Enum):
     PAUSE_6 = 'pause6.png'
 
     def __init__(self, name):
-        self._name = name
-
-    @property
-    def path(self):
-        return Path('images', self._name)
+        super().__init__(name, 'images')
 
 
-class SoundFiles(Enum):
+class SoundFiles(Files):
 
     ROTATE = 'rotate.wav'
-    BREAK = 'break.wav'
+    GAMEOVER = 'gameover.wav'
+    FANFARE = 'fanfare.wav'
 
     def __init__(self, name):
-        self._name = name
-
-    @property
-    def path(self):
-        return Path('sounds', self._name)
+        super().__init__(name, 'sounds')
 
 
 BLUE = BlockSet(ImageFiles.BLOCK_BLUE, [[0.5, 2], [1.5, 2], [2.5, 2], [3.5, 2]],
@@ -179,7 +183,8 @@ class PyTetris:
 
     def create_sounds(self):
         self.rotate_sound = pygame.mixer.Sound(SoundFiles.ROTATE.path)
-        self.break_sound = pygame.mixer.Sound(SoundFiles.BREAK.path)
+        self.break_sound = pygame.mixer.Sound(SoundFiles.FANFARE.path)
+        self.gameover_sound = pygame.mixer.Sound(SoundFiles.GAMEOVER.path)
 
     def create_play_screen(self):
         _ = Plate(ImageFiles.PLATE.path)
@@ -243,12 +248,13 @@ class PyTetris:
             if any(self.judge_ground(block) for block in self.blocks):
                 self.update_matrix()
                 if any(all(row) for row in self.matrix):
-                    self.ground_timer = 60
+                    self.ground_timer = 50
                     self.block_status = Status.WAITING
                     self.update = self.update_ground_blocks
                 # Game over
                 elif any(block for block in self.matrix[0]):
                     self.status = Status.GAMEOVER
+                    self.gameover_sound.play()
                 else:
                     self.create_block()
                     self.drop_timer = 1
@@ -378,7 +384,6 @@ class PyTetris:
         next_index = self.index + 1
         if next_index > 3:
             next_index = 0
-        print(next_index)
         rotated_pos = self.blockset[next_index]
         rotatable, over = self.judge_rotate(rotated_pos)
         if rotatable:

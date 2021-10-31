@@ -19,3 +19,8 @@ A python implementation of Tetris Game
 >>>python pytetris.py
 ```
 
+### controls:
+* Press up arrow key to rotate blocks.
+* Press down arrow key to drop blocks.
+* Press right arrow key to move blocks to the right.
+* Press left arrow key to move blocks to the left. 

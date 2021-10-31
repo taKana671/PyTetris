@@ -2,7 +2,7 @@
 A python implementation of Tetris Game
 
 # Demo
-![pytetris_demo](https://user-images.githubusercontent.com/48859041/139587543-3e4eabbb-c981-4f07-a720-a22dbb1a0bf0.gif)
+![pytetris_demo](https://user-images.githubusercontent.com/48859041/139588823-faece24c-5b61-4c60-816f-982a7c7a303b.gif)
 
 # Requirements
 * Python3.8

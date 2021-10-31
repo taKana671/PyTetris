@@ -153,10 +153,7 @@ class PyTetris:
         self.screen = screen
         self.matrix = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.blocks = [None for _ in range(4)]
-        self.create_play_screen()
-        self.create_start_screen()
-        self.create_pause_screen()
-        self.create_gameover_screen()
+        self.create_screens()
         self.create_sounds()
         self.block_status = Status.WAITING
         self.status = Status.START
@@ -186,6 +183,12 @@ class PyTetris:
         self.break_sound = pygame.mixer.Sound(SoundFiles.FANFARE.path)
         self.gameover_sound = pygame.mixer.Sound(SoundFiles.GAMEOVER.path)
 
+    def create_screens(self):
+        self.create_play_screen()
+        self.create_start_screen()
+        self.create_pause_screen()
+        self.create_gameover_screen()
+
     def create_play_screen(self):
         _ = Plate(ImageFiles.PLATE.path)
         self.score = Score(self.screen)
@@ -194,12 +197,12 @@ class PyTetris:
         self.pause_button = StopButton(ImageFiles.PAUSE.path, PAUSE_LEFT, PAUSE_TOP)
 
     def create_pause_screen(self):
-        self.pause_screen = Pause('images', self.screen)
+        _ = Pause('images', self.screen)
         self.restart_button = RestartButton(
             ImageFiles.START.path, RESTART_LEFT, RESTART_TOP)
 
     def create_start_screen(self):
-        self.start_screen = Start(ImageFiles.START_SCREEN.path, self.screen)
+        _ = Start(ImageFiles.START_SCREEN.path, self.screen)
         self.start_button = StartButton(
             ImageFiles.START.path, START_LEFT, START_TOP)
 
@@ -702,6 +705,7 @@ class Score:
 def main():
     pygame.init()
     screen = pygame.display.set_mode(SCREEN.size)
+    pygame.display.set_caption('PyTetris')
     play = pygame.sprite.RenderUpdates()
     pause = pygame.sprite.RenderUpdates()
     start = pygame.sprite.RenderUpdates()

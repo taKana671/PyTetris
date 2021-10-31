@@ -12,3 +12,10 @@ A python implementation of Tetris Game
 
 # Environment
 * Windows10
+
+# Usage
+* execute a command below on the command line.
+```
+>>>python pytetris.py
+```
+

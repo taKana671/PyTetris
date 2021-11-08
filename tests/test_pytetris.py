@@ -86,14 +86,14 @@ class PyTetrisGetBlocksetIndexTestCase(TestCase):
                     self.assertTrue(0 <= result <= len(BLOCKSETS) - 1)
 
 
+@mock.patch('pytetris.PyTetris.create_screens')
+@mock.patch('pytetris.PyTetris.create_sounds')
+@mock.patch('pytetris.PyTetris.get_blockset_index')
+@mock.patch('pytetris.Block')
 class PyTetrisCreateBlockTestCase(TestCase):
     """Tests for PyTetris.create_block
     """
 
-    @mock.patch('pytetris.PyTetris.create_screens')
-    @mock.patch('pytetris.PyTetris.create_sounds')
-    @mock.patch('pytetris.PyTetris.get_blockset_index')
-    @mock.patch('pytetris.Block')
     def test_create_block_next_block_is_none(self, mock_block, mock_get_blockset_index,
                                              mock_create_sounds, mock_create_screens):
         """get_blockset_index must be called two times if next_blockset is None, and
@@ -115,10 +115,6 @@ class PyTetrisCreateBlockTestCase(TestCase):
             mock_set_image.assert_called_once_with(2)
         self.assertEqual(mock_get_blockset_index.call_count, 2)
 
-    @mock.patch('pytetris.PyTetris.create_screens')
-    @mock.patch('pytetris.PyTetris.create_sounds')
-    @mock.patch('pytetris.PyTetris.get_blockset_index')
-    @mock.patch('pytetris.Block')
     def test_create_block_next_block_is_not_none(self, mock_block, mock_get_blockset_index,
                                                  mock_create_sounds, mock_create_screens):
         """get_blockset_index must be called once if next_blockset is not None, and
@@ -141,17 +137,21 @@ class PyTetrisCreateBlockTestCase(TestCase):
         self.assertEqual(mock_get_blockset_index.call_count, 1)
 
 
+@mock.patch('pytetris.PyTetris.create_block')
+@mock.patch('pytetris.PyTetris.update_matrix')
+@mock.patch('pytetris.PyTetris.judge_ground')
+@mock.patch('pytetris.PyTetris.correct_top')
+@mock.patch('pytetris.PyTetris.move_down')
+@mock.patch('pytetris.PyTetris.set_block_center')
+@mock.patch('pytetris.PyTetris.create_screens')
+@mock.patch('pytetris.PyTetris.create_sounds')
 class PyTetrisUpdateMovingBlockTestCase(TestCase):
     """Tests for PyTetris.update_moving_block
     """
 
-    @mock.patch('pytetris.PyTetris.set_block_center')
-    @mock.patch('pytetris.PyTetris.correct_top')
-    @mock.patch('pytetris.PyTetris.move_down')
-    @mock.patch('pytetris.PyTetris.create_screens')
-    @mock.patch('pytetris.PyTetris.create_sounds')
-    def test_update_moving_block(self, mock_create_sounds, mock_create_screens, mock_move_down,
-                                 mock_correct_top, mock_set_block_center):
+    def test_update_moving_block_move_down(self, mock_create_sounds, mock_create_screens,
+                                           mock_set_block_center, mock_move_down, mock_correct_top,
+                                           mock_judge_ground, mock_update_matrix, mock_create_block):
         """If status is Status.Play and drop_timer is 0,
            move_down is called and drop_timer set to default.
         """
@@ -169,10 +169,165 @@ class PyTetrisUpdateMovingBlockTestCase(TestCase):
 
         mock_move_down.assert_called_once()
         mock_correct_top.assert_not_called()
+        mock_judge_ground.assert_not_called()
+        mock_update_matrix.assert_not_called()
+        mock_create_block.assert_not_called()
         self.assertEqual(mock_set_block_center.call_count, 4)
 
+    def test_update_moving_block_correct_top(self, mock_create_sounds, mock_create_screens,
+                                             mock_set_block_center, mock_move_down, mock_correct_top,
+                                             mock_judge_ground, mock_update_matrix, mock_create_block):
+        """If one of the blocks has row less than 0, correct_top must be called.
+        """
+        blocks = [DummyBlock(row, 4) for row in (-2, -1, 0, 1)]
+        timer_value = 40
+        tetris = PyTetris(object())
+        with mock.patch.object(tetris, 'status', Status.PLAY), \
+                mock.patch.object(tetris, 'drop_timer', timer_value, create=True), \
+                mock.patch.object(tetris, 'judge_timer', timer_value, create=True), \
+                mock.patch.object(tetris, 'blocks', blocks):
+            tetris.update_moving_block()
+            self.assertEqual(tetris.drop_timer, timer_value - 1)
+            self.assertEqual(tetris.judge_timer, timer_value - 1)
 
+        mock_move_down.assert_not_called()
+        mock_correct_top.assert_called_with(-2)
+        mock_judge_ground.assert_not_called()
+        mock_update_matrix.assert_not_called()
+        mock_create_block.assert_not_called()
+        self.assertEqual(mock_set_block_center.call_count, 4)
 
+    def test_update_moving_block_judge_timer(self, mock_create_sounds, mock_create_screens,
+                                             mock_set_block_center, mock_move_down, mock_correct_top,
+                                             mock_judge_ground, mock_update_matrix, mock_create_block):
+        """If judge_timer is 0, it must be set to timer_value.
+        """
+        blocks = [DummyBlock(row, 4) for row in range(4)]
+        mock_judge_ground.side_effect = [False] * 4
+        timer_value = 40
+        tetris = PyTetris(object())
+        with mock.patch.object(tetris, 'status', Status.PLAY), \
+                mock.patch.object(tetris, 'timer_value', timer_value, create=True), \
+                mock.patch.object(tetris, 'drop_timer', timer_value, create=True), \
+                mock.patch.object(tetris, 'judge_timer', 1, create=True), \
+                mock.patch.object(tetris, 'blocks', blocks):
+            tetris.update_moving_block()
+            self.assertEqual(tetris.drop_timer, timer_value - 1)
+            self.assertEqual(tetris.judge_timer, timer_value)
+
+        self.assertEqual(mock_judge_ground.call_count, 4)
+        self.assertEqual(mock_set_block_center.call_count, 4)
+        mock_update_matrix.assert_not_called()
+        mock_correct_top.assert_not_called()
+        mock_move_down.assert_not_called()
+        mock_create_block.assert_not_called()
+
+    def test_update_moving_block_waiting(self, mock_create_sounds, mock_create_screens,
+                                         mock_set_block_center, mock_move_down, mock_correct_top,
+                                         mock_judge_ground, mock_update_matrix, mock_create_block):
+        """If judge_ground returns True at least one time, ground_timer must be set to 50.
+        """
+        blocks = [DummyBlock(row, 4) for row in range(4)]
+        matrix = [[None, None, None],
+                  [DummyBlock(2, 0), DummyBlock(2, 1), DummyBlock(2, 2)],
+                  [None, None, None]]
+        mock_judge_ground.side_effect = [False, True, False, False]
+        timer_value = 40
+        tetris = PyTetris(object())
+        with mock.patch.object(tetris, 'status', Status.PLAY), \
+                mock.patch.object(tetris, 'timer_value', timer_value, create=True), \
+                mock.patch.object(tetris, 'drop_timer', timer_value, create=True), \
+                mock.patch.object(tetris, 'judge_timer', 1, create=True), \
+                mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'block_status', Status.DROPPING, create=True), \
+                mock.patch.object(tetris, 'matrix', matrix):
+            tetris.update_moving_block()
+            self.assertEqual(tetris.drop_timer, timer_value - 1)
+            self.assertEqual(tetris.judge_timer, timer_value)
+            self.assertEqual(tetris.ground_timer, 50)
+            self.assertEqual(tetris.block_status, Status.WAITING)
+            self.assertEqual(tetris.update, tetris.update_ground_blocks)
+
+        self.assertEqual(mock_judge_ground.call_count, 2)
+        self.assertEqual(mock_set_block_center.call_count, 4)
+        mock_update_matrix.assert_called_once()
+        mock_move_down.assert_not_called()
+        mock_correct_top.assert_not_called()
+        mock_create_block.assert_not_called()
+
+    def test_update_moving_block_gameover(self, mock_create_sounds, mock_create_screens,
+                                          mock_set_block_center, mock_move_down, mock_correct_top,
+                                          mock_judge_ground, mock_update_matrix, mock_create_block):
+        """If judge_ground returns True at least one time, ground_timer must be set to 50.
+        """
+        blocks = [DummyBlock(row, 4) for row in range(4)]
+        matrix = [[None, DummyBlock(2, 0), None],
+                  [None, None, None],
+                  [None, None, None]]
+        mock_judge_ground.side_effect = [False, True, False, False]
+        timer_value = 40
+        mock_play = mock.MagicMock()
+        mock_gameover_sound = mock.MagicMock()
+        mock_gameover_sound.play = mock_play
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'status', Status.PLAY), \
+                mock.patch.object(tetris, 'timer_value', timer_value, create=True), \
+                mock.patch.object(tetris, 'drop_timer', timer_value, create=True), \
+                mock.patch.object(tetris, 'judge_timer', 1, create=True), \
+                mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'block_status', Status.DROPPING, create=True), \
+                mock.patch.object(tetris, 'gameover_sound', mock_gameover_sound, create=True), \
+                mock.patch.object(tetris, 'matrix', matrix):
+            tetris.update_moving_block()
+            self.assertEqual(tetris.drop_timer, timer_value - 1)
+            self.assertEqual(tetris.judge_timer, timer_value)
+            self.assertEqual(tetris.block_status, Status.DROPPING)
+            self.assertEqual(tetris.status, Status.GAMEOVER)
+
+        self.assertEqual(mock_judge_ground.call_count, 2)
+        self.assertEqual(mock_set_block_center.call_count, 4)
+        mock_update_matrix.assert_called_once()
+        mock_move_down.assert_not_called()
+        mock_correct_top.assert_not_called()
+        mock_play.assert_called_once()
+        mock_create_block.assert_not_called()
+
+    def test_update_moving_block_create_block(self, mock_create_sounds, mock_create_screens,
+                                              mock_set_block_center, mock_move_down, mock_correct_top,
+                                              mock_judge_ground, mock_update_matrix, mock_create_block):
+        """If blocks are grounded, create_block must be called.
+        """
+        blocks = [DummyBlock(row, 4) for row in range(4)]
+        matrix = [[None, None, None],
+                  [None, DummyBlock(2, 0), None],
+                  [None, None, None]]
+        mock_judge_ground.side_effect = [False, True, False, False]
+        timer_value = 40
+        mock_play = mock.MagicMock()
+        mock_gameover_sound = mock.MagicMock()
+        mock_gameover_sound.play = mock_play
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'status', Status.PLAY), \
+                mock.patch.object(tetris, 'timer_value', timer_value, create=True), \
+                mock.patch.object(tetris, 'drop_timer', timer_value, create=True), \
+                mock.patch.object(tetris, 'judge_timer', 1, create=True), \
+                mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'block_status', Status.DROPPING, create=True), \
+                mock.patch.object(tetris, 'matrix', matrix):
+            tetris.update_moving_block()
+            self.assertEqual(tetris.drop_timer, 1)
+            self.assertEqual(tetris.judge_timer, timer_value)
+            self.assertEqual(tetris.block_status, Status.DROPPING)
+            self.assertEqual(tetris.status, Status.PLAY)
+
+        self.assertEqual(mock_judge_ground.call_count, 2)
+        self.assertEqual(mock_set_block_center.call_count, 4)
+        mock_update_matrix.assert_called_once()
+        mock_create_block.assert_called_once()
+        mock_move_down.assert_not_called()
+        mock_correct_top.assert_not_called()
 
 
 if __name__ == '__main__':

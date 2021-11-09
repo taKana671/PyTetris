@@ -330,5 +330,106 @@ class PyTetrisUpdateMovingBlockTestCase(TestCase):
         mock_correct_top.assert_not_called()
 
 
+@mock.patch('pytetris.PyTetris.create_block')
+@mock.patch('pytetris.PyTetris.move_ground_blocks')
+@mock.patch('pytetris.PyTetris.delete_blocks')
+@mock.patch('pytetris.PyTetris.create_screens')
+@mock.patch('pytetris.PyTetris.create_sounds')
+class PyTetrisUpdateGroundBlocksTestCase(TestCase):
+    """Tests for PyTetris.update_moving_blocks
+    """
+
+    def test_no_deleted_rows(self, mock_create_sounds, mock_create_screens, mock_delete_blocks,
+                             mock_move_ground_blocks, mock_create_block):
+        """If ground_timer is 40 and deleted_rows is 0, no methods are called.
+        """
+        mock_delete_blocks.return_value = 0
+        mock_break_sound = mock.MagicMock()
+        mock_play = mock.MagicMock()
+        mock_break_sound.play = mock_play
+        mock_score = mock.MagicMock()
+        mock_add = mock.MagicMock()
+        mock_score.add = mock_add
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'ground_timer', 41, create=True), \
+                mock.patch.object(tetris, 'break_sound', mock_break_sound, create=True), \
+                mock.patch.object(tetris, 'score', mock_score, create=True), \
+                mock.patch.object(tetris, 'block_status', Status.WAITING, create=True):
+            tetris.update_ground_blocks()
+            self.assertEqual(tetris.ground_timer, 40)
+            self.assertEqual(tetris.block_status, Status.WAITING)
+
+        mock_delete_blocks.assert_called_once()
+        mock_play.assert_not_called()
+        mock_add.assert_not_called()
+        mock_move_ground_blocks.assert_not_called()
+        mock_create_block.assert_not_called()
+
+    def test_deleted_rows_same_level(self, mock_create_sounds, mock_create_screens, mock_delete_blocks,
+                                     mock_move_ground_blocks, mock_create_block):
+        """If deleted_rows is not 0 but level is not changed, play and add methods are called.
+        """
+        mock_delete_blocks.return_value = 3
+        mock_break_sound = mock.MagicMock()
+        mock_play = mock.MagicMock()
+        mock_break_sound.play = mock_play
+        mock_score = mock.MagicMock(level=1)
+        mock_add = mock.MagicMock()
+        mock_score.add = mock_add
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'ground_timer', 41, create=True), \
+                mock.patch.object(tetris, 'break_sound', mock_break_sound, create=True), \
+                mock.patch.object(tetris, 'score', mock_score, create=True), \
+                mock.patch.object(tetris, 'level', 1, create=True), \
+                mock.patch.object(tetris, 'block_status', Status.WAITING, create=True):
+            tetris.update_ground_blocks()
+            self.assertEqual(tetris.ground_timer, 40)
+            self.assertEqual(tetris.block_status, Status.WAITING)
+
+        mock_delete_blocks.assert_called_once()
+        mock_play.assert_called_once()
+        mock_add.assert_called_once_with(mock_delete_blocks.return_value)
+        mock_move_ground_blocks.assert_not_called()
+        mock_create_block.assert_not_called()
+
+    def test_deleted_rows_not_same_level(self, mock_create_sounds, mock_create_screens, mock_delete_blocks,
+                                         mock_move_ground_blocks, mock_create_block):
+        """If deleted_rows is not 0 and level is changed, play and add methods are called.
+        """
+        mock_delete_blocks.return_value = 3
+        mock_break_sound = mock.MagicMock()
+        mock_play = mock.MagicMock()
+        mock_break_sound.play = mock_play
+        mock_score = mock.MagicMock(level=2)
+        mock_add = mock.MagicMock()
+        mock_score.add = mock_add
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'ground_timer', 41, create=True), \
+                mock.patch.object(tetris, 'timer_value', 20, create=True), \
+                mock.patch.object(tetris, 'break_sound', mock_break_sound, create=True), \
+                mock.patch.object(tetris, 'score', mock_score, create=True), \
+                mock.patch.object(tetris, 'level', 1, create=True), \
+                mock.patch.object(tetris, 'block_status', Status.WAITING, create=True):
+            tetris.update_ground_blocks()
+            self.assertEqual(tetris.ground_timer, 40)
+            self.assertEqual(tetris.timer_value, 18)
+            self.assertEqual(tetris.level, 2)
+            self.assertEqual(tetris.block_status, Status.WAITING)
+
+        mock_delete_blocks.assert_called_once()
+        mock_play.assert_called_once()
+        mock_add.assert_called_once_with(mock_delete_blocks.return_value)
+        mock_move_ground_blocks.assert_not_called()
+        mock_create_block.assert_not_called()
+
+        
+
+
+
+
+
 if __name__ == '__main__':
     main()

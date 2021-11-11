@@ -299,6 +299,7 @@ class PyTetris:
     def check_matrix(self, new_row, new_col):
         if self.matrix[new_row][new_col]:
             return True
+        return False
 
     def judge_left(self, block):
         new_col = block.col - 1

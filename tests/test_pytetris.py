@@ -717,8 +717,317 @@ class PyTetrisMoveMethodsTestCase(TestCase):
     """Tests for move methods in PyTetris
     """
 
-    def test_move_right(self):
-        pass
+    def setUp(self):
+        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
+        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
+        patcher_create_screens.start()
+        padcher_create_sounds.start()
+        patcher_all = mock.patch('pytetris.all')
+        patcher_update_blockset_col = mock.patch('pytetris.update_blockset_col')
+        patcher_update_blockset_row = mock.patch('pytetris.update_blockset_row')
+        self.mock_all = patcher_all.start()
+        self.mock_update_blockset_col = patcher_update_blockset_col.start()
+        self.mock_update_blockset_row = patcher_update_blockset_row.start()
+        self.blockset = [[None, None, None], [None, None, None]]
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def get_brockset(self):
+        blocks = [
+            mock.MagicMock(row=2, col=4),
+            mock.MagicMock(row=2, col=5),
+            mock.MagicMock(row=3, col=4),
+            mock.MagicMock(row=3, col=5)]
+        return blocks
+
+    def test_move_right_all_return_true(self):
+        """If all returns True, columns of blocks must be incremented by +1.
+        """
+        self.mock_all.return_value = True
+        tetris = PyTetris(object())
+        expect = [(2, 5), (2, 6), (3, 5), (3, 6)]
+        blocks = self.get_brockset()
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True):
+            tetris.move_right()
+            self.mock_update_blockset_col.assert_called_once_with(tetris.blockset, 1)
+
+        for i in range(len(blocks)):
+            with self.subTest():
+                block = blocks[i]
+                self.assertEqual((block.row, block.col), expect[i])
+
+    def test_move_right_all_return_false(self):
+        """If all returns True, columns of blocks must not be changed.
+        """
+        self.mock_all.return_value = False
+        tetris = PyTetris(object())
+        expect = [(2, 4), (2, 5), (3, 4), (3, 5)]
+        blocks = self.get_brockset()
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True):
+            tetris.move_right()
+            self.mock_update_blockset_col.assert_not_called()
+
+        for i in range(len(blocks)):
+            with self.subTest():
+                block = blocks[i]
+                self.assertEqual((block.row, block.col), expect[i])
+
+    def test_move_left_all_return_true(self):
+        """If all returns True, columns of blocks must be incremented by -1.
+        """
+        self.mock_all.return_value = True
+        tetris = PyTetris(object())
+        expect = [(2, 3), (2, 4), (3, 3), (3, 4)]
+        blocks = self.get_brockset()
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True):
+            tetris.move_left()
+            self.mock_update_blockset_col.assert_called_once_with(tetris.blockset, -1)
+
+        for i in range(len(blocks)):
+            with self.subTest():
+                block = blocks[i]
+                self.assertEqual((block.row, block.col), expect[i])
+
+    def test_move_left_all_return_false(self):
+        """If all returns True, columns of blocks must not be changed.
+        """
+        self.mock_all.return_value = False
+        tetris = PyTetris(object())
+        expect = [(2, 4), (2, 5), (3, 4), (3, 5)]
+        blocks = self.get_brockset()
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True):
+            tetris.move_left()
+            self.mock_update_blockset_col.assert_not_called()
+
+        for i in range(len(blocks)):
+            with self.subTest():
+                block = blocks[i]
+                self.assertEqual((block.row, block.col), expect[i])
+
+    def test_move_down_all_return_true(self):
+        """If all returns True, rows of blocks must be incremented by +1.
+        """
+        self.mock_all.return_value = True
+        tetris = PyTetris(object())
+        expect = [(3, 4), (3, 5), (4, 4), (4, 5)]
+        blocks = self.get_brockset()
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True):
+            tetris.move_down()
+            self.mock_update_blockset_row.assert_called_once_with(tetris.blockset, 1)
+
+        for i in range(len(blocks)):
+            with self.subTest():
+                block = blocks[i]
+                self.assertEqual((block.row, block.col), expect[i])
+
+    def test_move_down_all_return_false(self):
+        """If all returns True, rows of blocks must not be changed.
+        """
+        self.mock_all.return_value = False
+        tetris = PyTetris(object())
+        expect = [(2, 4), (2, 5), (3, 4), (3, 5)]
+        blocks = self.get_brockset()
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True):
+            tetris.move_down()
+            self.mock_update_blockset_row.assert_not_called()
+
+        for i in range(len(blocks)):
+            with self.subTest():
+                block = blocks[i]
+                self.assertEqual((block.row, block.col), expect[i])
+
+
+class PyTetrisRotateTestCase(TestCase):
+    """Tests for rotate mothod
+    """
+
+    def setUp(self):
+        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
+        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
+        patcher_create_screens.start()
+        padcher_create_sounds.start()
+        patcher_create_screens = mock.patch('pytetris.PyTetris.judge_rotate')
+        self.mock_judge_rotate = patcher_create_screens.start()
+        self.mock_rotate_sound = mock.MagicMock()
+        self.mock_play = mock.MagicMock()
+        self.mock_rotate_sound.play = self.mock_play
+        self.blockset = np.array(
+            [[[-1, 4], [0, 3], [0, 4], [0, 5]],
+             [[-1, 4], [0, 4], [1, 4], [0, 3]],
+             [[-1, 3], [-1, 4], [-1, 5], [0, 4]],
+             [[-1, 4], [0, 4], [1, 4], [0, 5]]])
+        self.blocks = [
+            mock.MagicMock(row=-1, col=3),
+            mock.MagicMock(row=-1, col=4),
+            mock.MagicMock(row=-1, col=5),
+            mock.MagicMock(row=0, col=4)]
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def test_rotatable_is_true(self):
+        """If judge_rotate returns True, block must be rotated.
+        """
+        self.mock_judge_rotate.return_value = (True, 2)
+        expects = [(-1, 2), (0, 2), (1, 2), (0, 3)]
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'index', 2, create=True), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True), \
+                mock.patch.object(tetris, 'rotate_sound', self.mock_rotate_sound, create=True), \
+                mock.patch.object(tetris, 'blocks', self.blocks, create=True):
+            tetris.rotate()
+            self.mock_play.assert_called_once()
+            self.assertEqual(tetris.index, 3)
+
+        for block, expect in zip(self.blocks, expects):
+            with self.subTest():
+                self.assertEqual((block.row, block.col), expect)
+
+    def test_rotatable_is_false(self):
+        """If judge_rotate returns True, block is not rotated.
+        """
+        self.mock_judge_rotate.return_value = (False, 0)
+        expects = [(-1, 3), (-1, 4), (-1, 5), (0, 4)]
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'index', 1, create=True), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True), \
+                mock.patch.object(tetris, 'rotate_sound', self.mock_rotate_sound, create=True):
+            tetris.rotate()
+            self.mock_play.assert_not_called()
+            self.assertEqual(tetris.index, 1)
+
+        for block, expect in zip(self.blocks, expects):
+            with self.subTest():
+                self.assertEqual((block.row, block.col), expect)
+
+    def test_rotatable_index_set_to_0(self):
+        """If judge_rotate returns True, block must be rotated.
+        """
+        self.mock_judge_rotate.return_value = (True, 0)
+        expects = [(-1, 4), (0, 3), (0, 4), (0, 5)]
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'index', 3, create=True), \
+                mock.patch.object(tetris, 'blockset', self.blockset, create=True), \
+                mock.patch.object(tetris, 'rotate_sound', self.mock_rotate_sound, create=True), \
+                mock.patch.object(tetris, 'blocks', self.blocks, create=True):
+            tetris.rotate()
+            self.mock_play.assert_called_once()
+            self.assertEqual(tetris.index, 0)
+
+        for block, expect in zip(self.blocks, expects):
+            with self.subTest():
+                self.assertEqual((block.row, block.col), expect)
+
+
+class PyTetrisClickTestCase(TestCase):
+    """Tests for click mothod
+    """
+
+    def setUp(self):
+        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
+        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
+        patcher_create_screens.start()
+        padcher_create_sounds.start()
+        patcher_initialize = mock.patch('pytetris.PyTetris.initialize')
+        self.mock_initialize = patcher_initialize.start()
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def test_click_stop_button(self):
+        mock_collidepoint = mock.MagicMock()
+        mock_stop_button = mock.MagicMock()
+        mock_stop_button.rect.collidepoint = mock_collidepoint
+        mock_collidepoint.return_value = True
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'status', Status.PLAY), \
+                mock.patch.object(tetris, 'stop_button', mock_stop_button, create=True):
+            tetris.click(3, 3)
+            self.assertEqual(tetris.status, Status.START)
+
+    def test_click_pause_button(self):
+        # stop button
+        mock_stop_collidepoint = mock.MagicMock()
+        mock_stop_button = mock.MagicMock()
+        mock_stop_button.rect.collidepoint = mock_stop_collidepoint
+        mock_stop_collidepoint.return_value = False
+        # pause button
+        mock_pause_collidepoint = mock.MagicMock()
+        mock_pause_button = mock.MagicMock()
+        mock_pause_button.rect.collidepoint = mock_pause_collidepoint
+        mock_pause_collidepoint.return_value = True
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'status', Status.PLAY), \
+                mock.patch.object(tetris, 'stop_button', mock_stop_button, create=True), \
+                mock.patch.object(tetris, 'pause_button', mock_pause_button, create=True), \
+                mock.patch.object(tetris, 'update', tetris.update_moving_block, create=True):
+            tetris.click(3, 3)
+            self.assertEqual(tetris.status, Status.PAUSE)
+        self.assertEqual(tetris.update_before_pause, tetris.update_moving_block)
+
+    def test_click_restart_button(self):
+        mock_collidepoint = mock.MagicMock()
+        mock_restart_button = mock.MagicMock()
+        mock_restart_button.rect.collidepoint = mock_collidepoint
+        mock_collidepoint.return_value = True
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'status', Status.PAUSE), \
+                mock.patch.object(tetris, 'restart_button', mock_restart_button, create=True), \
+                mock.patch.object(tetris, 'update_before_pause', tetris.update_ground_blocks, create=True):
+            tetris.click(3, 3)
+            self.assertEqual(tetris.status, Status.PLAY)
+        self.assertEqual(tetris.update, tetris.update_ground_blocks)
+
+    def test_click_start_button(self):
+        mock_collidepoint = mock.MagicMock()
+        mock_start_button = mock.MagicMock()
+        mock_start_button.rect.collidepoint = mock_collidepoint
+        mock_collidepoint.return_value = True
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'status', Status.START), \
+                mock.patch.object(tetris, 'start_button', mock_start_button, create=True), \
+                mock.patch.object(tetris, 'update_before_pause', tetris.update_ground_blocks, create=True):
+            tetris.click(3, 3)
+            self.assertEqual(tetris.status, Status.START)
+        self.mock_initialize.assert_called_once()
+
+    def test_click_repeat_button(self):
+        mock_collidepoint = mock.MagicMock()
+        mock_repeat_button = mock.MagicMock()
+        mock_repeat_button.rect.collidepoint = mock_collidepoint
+        mock_collidepoint.return_value = True
+        mock_gameover_screen = mock.MagicMock()
+        mock_gameover_initialize = mock.MagicMock()
+        mock_gameover_screen.initialize = mock_gameover_initialize
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'status', Status.REPEAT), \
+                mock.patch.object(tetris, 'repeat_button', mock_repeat_button, create=True), \
+                mock.patch.object(tetris, 'gameover_screen', mock_gameover_screen, create=True):
+            tetris.click(3, 3)
+            self.assertEqual(tetris.status, Status.REPEAT)
+        self.mock_initialize.assert_called_once()
+        mock_gameover_initialize.assert_called_once()
 
 
 if __name__ == '__main__':

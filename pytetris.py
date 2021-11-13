@@ -359,11 +359,6 @@ class PyTetris:
             for block in self.blocks:
                 block.row += step
 
-    def move_up(self):
-        self.update_row(-1)
-        for block in self.blocks:
-            block.row -= 1
-
     def judge_rotate(self, rotated_pos):
         """Check whether blocks can be rotated or not.
            Args:

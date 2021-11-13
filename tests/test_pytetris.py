@@ -7,6 +7,8 @@ from collections import namedtuple
 from pathlib import Path
 from unittest import TestCase, main, mock
 
+import numpy as np
+
 from pytetris import ImageFiles, SoundFiles, PyTetris, BLOCKSETS, Status, Score
 
 
@@ -524,7 +526,7 @@ class PyTetrisMoveGroundBlocksTestCase(TestCase):
              [None, None, None, None, None],
              [None, mock.MagicMock(row=3), None, None, None],
              [mock.MagicMock(row=4), mock.MagicMock(row=4), None, mock.MagicMock(row=4), None],
-             [None, mock.MagicMock(row=5), None, mock.MagicMock(row=5), None]]    
+             [None, mock.MagicMock(row=5), None, mock.MagicMock(row=5), None]]
         )
         calls_expects = [4, 6]
         tetris = PyTetris(object())
@@ -543,29 +545,180 @@ class PyTetrisMoveGroundBlocksTestCase(TestCase):
             self.assertEqual(mock_set_block_center.call_count, calls)
             mock_set_block_center.reset_mock()
 
-@mock.patch('pytetris.PyTetris.create_screens')
-@mock.patch('pytetris.PyTetris.create_sounds')
+
 class PyTetrisCneckAndJudgeMethosTestCase(TestCase):
     """Tests for judge and check methos of PyTetris
     """
 
-    def test_check_matrix(self, mock_create_sounds, mock_create_screens):
-        """Tests for check_matrix
-        """
-        matrix = [
+    def setUp(self):
+        self.matrix = [
             [None, None, None, None, None],
             [DummyBlock(1, 0), DummyBlock(1, 1), None, None, None],
-            [None, None, None, None, DummyBlock(2, 4)]
+            [None, None, None, None, DummyBlock(2, 4)],
+            [None, None, None, None, None],
+            [None, None, None, None, None]
         ]
+        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
+        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
+        patcher_create_screens.start()
+        padcher_create_sounds.start()
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def test_check_matrix(self):
+        """Test for check_matrix
+        """
         tests = [(0, 1), (1, 1), (1, 4), (2, 1), (2, 4)]
-        expects = [None, True, None, None, True]
+        expects = [False, True, False, False, True]
         tetris = PyTetris(object())
 
-        with mock.patch.object(tetris, 'matrix', matrix):
+        with mock.patch.object(tetris, 'matrix', self.matrix):
             for test, expect in zip(tests, expects):
                 with self.subTest():
                     result = tetris.check_matrix(*test)
                     self.assertEqual(result, expect)
+
+    def test_judge_left(self):
+        """Test for judge_left
+        """
+        tests = [DummyBlock(1, 0), DummyBlock(1, 1), DummyBlock(1, 3)]
+        expects = [False, False, True]
+        tetris = PyTetris(object())
+        with mock.patch.object(tetris, 'matrix', self.matrix):
+            for test, expect in zip(tests, expects):
+                with self.subTest((test, expect)):
+                    result = tetris.judge_left(test)
+                    self.assertEqual(result, expect)
+
+    def test_judge_right(self):
+        """Test for judge_right
+        """
+        tests = [DummyBlock(1, 9), DummyBlock(2, 3), DummyBlock(1, 3)]
+        expects = [False, False, True]
+        tetris = PyTetris(object())
+        with mock.patch.object(tetris, 'matrix', self.matrix):
+            for test, expect in zip(tests, expects):
+                with self.subTest((test, expect)):
+                    result = tetris.judge_right(test)
+                    self.assertEqual(result, expect)
+
+    def test_judge_down(self):
+        """Test for judge_down
+        """
+        tests = [DummyBlock(20, 0), DummyBlock(0, 1), DummyBlock(0, 4)]
+        expects = [False, False, True]
+        tetris = PyTetris(object())
+        with mock.patch.object(tetris, 'matrix', self.matrix):
+            for test, expect in zip(tests, expects):
+                with self.subTest((test, expect)):
+                    result = tetris.judge_down(test)
+                    self.assertEqual(result, expect)
+
+    def test_judge_ground(self):
+        """Test for judge_ground
+        """
+        tests = [DummyBlock(19, 0), DummyBlock(0, 1), DummyBlock(0, 4)]
+        expects = [True, True, False]
+        tetris = PyTetris(object())
+        with mock.patch.object(tetris, 'matrix', self.matrix):
+            for test, expect in zip(tests, expects):
+                with self.subTest((test, expect)):
+                    result = tetris.judge_ground(test)
+                    self.assertEqual(result, expect)
+
+    @mock.patch('pytetris.min')
+    @mock.patch('pytetris.max')
+    def test_judge_rotate(self, mock_max, mock_min):
+        """Test for judge_rotate
+        """
+        mock_max.side_effect = [1, 1, 0, 0, 0, 0]
+        mock_min.side_effect = [-1, -1, 0, 0]
+        tests = [
+            np.array([[3, 3], [3, 4], [2, 4], [2, 5]]),
+            np.array([[4, 3], [4, 4], [3, 4], [3, 5]]),
+            np.array([[3, -1], [3, 0], [4, 0], [4, 1]]),
+            np.array([[1, -1], [1, 0], [2, 0], [2, 1]]),
+            np.array([[3, 1], [3, 2], [4, 2], [4, 3]]),
+            np.array([[2, 3], [2, 4], [3, 2], [3, 3]])]
+        expects = [(False, 0), (True, 1), (True, -1), (False, 0), (True, 0), (False, 0)]
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'matrix', self.matrix):
+            for test, expect in zip(tests, expects):
+                with self.subTest((test, expect)):
+                    result = tetris.judge_rotate(test)
+                    self.assertEqual(result, expect)
+
+
+class PyTetrisCorrectTopTestCase(TestCase):
+    """Tests for correct_top
+    """
+
+    @mock.patch('pytetris.PyTetris.create_screens')
+    @mock.patch('pytetris.PyTetris.create_sounds')
+    def test_correct_top(self, mock_create_sounds, mock_create_screens):
+        mock_block = mock.MagicMock()
+        mock_kill = mock.MagicMock()
+        mock_block.kill = mock_kill
+        expects = [(-2, 3), (-1, 3), (0, 3), (1, 3)]
+        blocks = []
+        for row, col in expects:
+            blocks.append(mock.MagicMock(row=row, col=col))
+        matrix = [
+            [None, None, None, None, None],
+            [None, None, None, None, None],
+            [None, None, None, mock_block, None],
+            [None, None, None, mock_block, None],
+            [None, None, None, mock_block, None],
+            [None, None, None, mock_block, None]]
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'matrix', matrix):
+            tetris.correct_top(-2)
+        self.assertEqual(mock_kill.call_count, 2)
+
+        for block, (row, col) in zip(blocks, expects):
+            with self.subTest():
+                self.assertEqual((block.row - 2, block.col), (row, col))
+
+
+class PyTetrisUpdateMatrixTestCase(TestCase):
+    """Tests for update_matrix
+    """
+
+    @mock.patch('pytetris.PyTetris.create_screens')
+    @mock.patch('pytetris.PyTetris.create_sounds')
+    def test_update_matrix(self, mock_create_sounds, mock_create_screens):
+        blocks = [
+            DummyBlock(2, 4),
+            DummyBlock(3, 4),
+            DummyBlock(4, 4),
+            DummyBlock(5, 4)]
+        matrix = [[None for _ in range(5)] for _ in range(10)]
+        expects = set((block.row, block.col) for block in blocks)
+        tetris = PyTetris(object())
+
+        with mock.patch.object(tetris, 'blocks', blocks), \
+                mock.patch.object(tetris, 'matrix', matrix):
+            tetris.update_matrix()
+
+        for i, row in enumerate(matrix):
+            for j, cell in enumerate(row):
+                with self.subTest():
+                    if (i, j) in expects:
+                        self.assertTrue(matrix[i][j])
+                    else:
+                        self.assertTrue(matrix[i][j] is None)
+
+
+class PyTetrisMoveMethodsTestCase(TestCase):
+    """Tests for move methods in PyTetris
+    """
+
+    def test_move_right(self):
+        pass
 
 
 if __name__ == '__main__':

@@ -9,7 +9,8 @@ from unittest import TestCase, main, mock
 
 import numpy as np
 
-from pytetris import ImageFiles, SoundFiles, PyTetris, BLOCKSETS, Status, Score
+from pytetris import (ImageFiles, SoundFiles, PyTetris, BLOCKSETS, Status, Score,
+    GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP)
 
 
 DummyBlock = namedtuple('DummyBlock', 'row, col')
@@ -1028,6 +1029,150 @@ class PyTetrisClickTestCase(TestCase):
             self.assertEqual(tetris.status, Status.REPEAT)
         self.mock_initialize.assert_called_once()
         mock_gameover_initialize.assert_called_once()
+
+
+class ScoreTestCase(TestCase):
+    """Tests for Score class
+    """
+
+    @mock.patch('pytetris.pygame.font.SysFont')
+    def test_add(self, mock_sysfont):
+        tests = [1, 2, 3, 4]
+        # (lines, level, score)
+        expects = [(1, 1, 40), (3, 1, 140), (6, 1, 440), (10, 2, 2840)]
+        score = Score(object())
+
+        for test, expect in zip(tests, expects):
+            with self.subTest():
+                score.add(test)
+                self.assertEqual(
+                    (score.lines, score.level, score.score), expect)
+
+
+class GameOverTestCase(TestCase):
+    """Tests for GameOver class
+    """
+
+    def setUp(self):
+        GameOver.containers = object()
+        patcher_load = mock.patch('pytetris.pygame.image.load')
+        patcher_sprite = mock.patch('pytetris.pygame.sprite.Sprite.__init__')
+        patcher_sysfont = mock.patch('pytetris.pygame.font.SysFont')
+        # mock_load = patcher_load.start()
+        # mock_sprite = patcher_sprite.start()
+        # mock_sysfont = patcher_sysfont.start()
+        patcher_load.start()
+        patcher_sprite.start()
+        self.mock_sysfont = patcher_sysfont.start()
+
+        mock_image = mock.MagicMock()
+        mock_get_rect = mock.MagicMock()
+        mock_get_rect.return_value = mock.MagicMock(left=0, top=0)
+        mock_image.get_rect = mock_get_rect
+
+        mock_convert_alpha = mock.MagicMock()
+        mock_convert_alpha.return_value = mock_image
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    @mock.patch('pytetris.GameOver.draw_image')
+    @mock.patch('pytetris.GameOver.draw_text')
+    def test_update_status_is_none(self, mock_draw_text, mock_draw_image):
+        gameover = GameOver('test.png', mock.MagicMock(), mock.MagicMock())
+        with mock.patch.object(gameover, 'timer', 1):
+            gameover.update()
+            self.assertEqual(gameover.timer, 20)
+            self.assertEqual(gameover.status, Status.REPEAT)
+            self.assertEqual(gameover.game.status, Status.REPEAT)
+        mock_draw_image.assert_called_once()
+        mock_draw_text.assert_not_called()
+
+    @mock.patch('pytetris.GameOver.draw_image')
+    @mock.patch('pytetris.GameOver.draw_text')
+    def test_update_status_is_none_timer_not_zero(self, mock_draw_text, mock_draw_image):
+        gameover = GameOver('test.png', mock.MagicMock(), mock.MagicMock())
+        with mock.patch.object(gameover, 'timer', 100):
+            gameover.update()
+            self.assertEqual(gameover.timer, 99)
+            self.assertEqual(gameover.status, None)
+        mock_draw_image.assert_called_once()
+        mock_draw_text.assert_not_called()
+
+    @mock.patch('pytetris.GameOver.draw_image')
+    @mock.patch('pytetris.GameOver.draw_text')
+    def test_update_status_is_not_none(self, mock_draw_text, mock_draw_image):
+        gameover = GameOver('test.png', mock.MagicMock(), mock.MagicMock())
+        with mock.patch.object(gameover, 'status', Status.REPEAT):
+            gameover.update()
+            self.assertEqual(gameover.timer, 100)
+        mock_draw_image.assert_called_once()
+        mock_draw_text.assert_called_once()
+
+    def test_draw_image_top_less_than_gameovertop(self):
+        gameover = GameOver('test.png', mock.MagicMock(), mock.MagicMock())
+        gameover.draw_image()
+        self.assertEqual(gameover.top, 20)
+        self.assertEqual(gameover.is_drop, True)
+        self.assertEqual(gameover.rect.left, GAMEOVER_LEFT)
+        self.assertEqual(gameover.rect.top, 20)
+
+    def test_draw_image_top_more_than_gameovertop(self):
+        gameover = GameOver('test.png', mock.MagicMock(), mock.MagicMock())
+
+        with mock.patch.object(gameover, 'top', GAMEOVER_TOP + 20):  # GAMEOVER_TOP + 20 is 240
+            gameover.draw_image()
+            self.assertEqual(gameover.stop, 1)
+            self.assertEqual(gameover.is_drop, False)
+            self.assertEqual(gameover.top, GAMEOVER_TOP + 15)  # GAMEOVER_TOP + 15 is 235
+
+        self.assertEqual(gameover.rect.left, GAMEOVER_LEFT)
+        self.assertEqual(gameover.rect.top, GAMEOVER_TOP + 15)
+
+    def test_draw_image_top_less_than_gameoverboundtop(self):
+        gameover = GameOver('test.png', mock.MagicMock(), mock.MagicMock())
+
+        # GAMEOVER_BOUND_TOP -5 is 165
+        with mock.patch.object(gameover, 'top', GAMEOVER_BOUND_TOP - 5), \
+                mock.patch.object(gameover, 'stop', 1), \
+                mock.patch.object(gameover, 'is_drop', False):
+            gameover.draw_image()
+            self.assertEqual(gameover.stop, 1)
+            self.assertEqual(gameover.is_drop, True)
+
+        self.assertEqual(gameover.rect.left, GAMEOVER_LEFT)
+        self.assertEqual(gameover.rect.top, GAMEOVER_BOUND_TOP - 5)
+
+    def test_draw_text(self):
+        mock_render = mock.MagicMock()
+        mock_font = mock.MagicMock()
+        mock_font.render = mock_render
+        self.mock_sysfont.return_value = mock_font
+        mock_screen = mock.MagicMock()
+        mock_screen.blit = mock.MagicMock()
+
+        gameover = GameOver('test.png', mock_screen, mock.MagicMock())
+
+        with mock.patch.object(gameover, 'timer', 1):
+            gameover.draw_text()
+            self.assertEqual(gameover.index, 0)
+            self.assertEqual(gameover.timer, 20)
+
+    def test_draw_text_index_more_than_messagesize(self):
+        mock_render = mock.MagicMock()
+        mock_font = mock.MagicMock()
+        mock_font.render = mock_render
+        self.mock_sysfont.return_value = mock_font
+        mock_screen = mock.MagicMock()
+        mock_screen.blit = mock.MagicMock()
+
+        gameover = GameOver('test.png', mock_screen, mock.MagicMock())
+
+        with mock.patch.object(gameover, 'timer', 1), \
+                mock.patch.object(gameover, 'index', 3):
+            gameover.draw_text()
+            self.assertEqual(gameover.index, -1)
+            self.assertEqual(gameover.timer, 20)
 
 
 if __name__ == '__main__':

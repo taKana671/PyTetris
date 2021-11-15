@@ -10,7 +10,7 @@ from unittest import TestCase, main, mock
 import numpy as np
 
 from pytetris import (ImageFiles, SoundFiles, PyTetris, BLOCKSETS, Status, Score,
-    GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP)
+    Start, GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP)
 
 
 DummyBlock = namedtuple('DummyBlock', 'row, col')
@@ -1058,10 +1058,7 @@ class GameOverTestCase(TestCase):
         patcher_load = mock.patch('pytetris.pygame.image.load')
         patcher_sprite = mock.patch('pytetris.pygame.sprite.Sprite.__init__')
         patcher_sysfont = mock.patch('pytetris.pygame.font.SysFont')
-        # mock_load = patcher_load.start()
-        # mock_sprite = patcher_sprite.start()
-        # mock_sysfont = patcher_sysfont.start()
-        patcher_load.start()
+        mock_load = patcher_load.start()
         patcher_sprite.start()
         self.mock_sysfont = patcher_sysfont.start()
 
@@ -1072,6 +1069,7 @@ class GameOverTestCase(TestCase):
 
         mock_convert_alpha = mock.MagicMock()
         mock_convert_alpha.return_value = mock_image
+        mock_load.convert_alpha = mock_convert_alpha
 
     def tearDown(self):
         mock.patch.stopall()
@@ -1173,6 +1171,60 @@ class GameOverTestCase(TestCase):
             gameover.draw_text()
             self.assertEqual(gameover.index, -1)
             self.assertEqual(gameover.timer, 20)
+
+
+class StartTestCase(TestCase):
+    """Tests for Start class
+    """
+
+    def setUp(self):
+        Start.containers = object()
+        patcher_load = mock.patch('pytetris.pygame.image.load')
+        patcher_sprite = mock.patch('pytetris.pygame.sprite.Sprite.__init__')
+        patcher_sysfont = mock.patch('pytetris.pygame.font.SysFont')
+        mock_load = patcher_load.start()
+        patcher_sprite.start()
+        self.mock_sysfont = patcher_sysfont.start()
+        mock_render = mock.MagicMock()
+        self.mock_sysfont.render = mock_render
+
+        mock_image = mock.MagicMock()
+        mock_get_rect = mock.MagicMock()
+        mock_get_rect.return_value = mock.MagicMock(left=0, top=0)
+        mock_image.get_rect = mock_get_rect
+
+        mock_convert = mock.MagicMock()
+        mock_convert.return_value = mock_image
+        mock_load.convert = mock_convert
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def test_draw_text_timer_set_to_20(self):
+        mock_screen = mock.MagicMock()
+        mock_blit = mock.MagicMock()
+        mock_screen.blit = mock_blit
+        start = Start('test.png', mock_screen)
+
+        with mock.patch.object(start, 'timer', 1):
+            start.draw_text()
+            self.assertEqual(start.timer, 20)
+            self.assertEqual(start.index, 0)
+
+    def test_draw_text_index_set_to_default(self):
+        mock_screen = mock.MagicMock()
+        mock_blit = mock.MagicMock()
+        mock_screen.blit = mock_blit
+        start = Start('test.png', mock_screen)
+
+        with mock.patch.object(start, 'timer', 1), \
+                mock.patch.object(start, 'index', 2):
+            start.draw_text()
+            self.assertEqual(start.timer, 20)
+            self.assertEqual(start.index, -1)
+
+
+
 
 
 if __name__ == '__main__':

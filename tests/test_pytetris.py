@@ -10,7 +10,7 @@ from unittest import TestCase, main, mock
 import numpy as np
 
 from pytetris import (ImageFiles, SoundFiles, PyTetris, BLOCKSETS, Status, Score,
-    Start, GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP)
+    Start, GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP, Pause)
 
 
 DummyBlock = namedtuple('DummyBlock', 'row, col')
@@ -1224,7 +1224,51 @@ class StartTestCase(TestCase):
             self.assertEqual(start.index, -1)
 
 
+class PauseTestCase(TestCase):
+    """Tests for Pause class
+    """
 
+    def setUp(self):
+        Pause.containers = object()
+        patcher_sprite = mock.patch('pytetris.pygame.sprite.Sprite.__init__')
+        patcher_sysfont = mock.patch('pytetris.pygame.font.SysFont')
+        patcher_sprite.start()
+        patcher_sysfont.start()
+
+        mock_image = mock.MagicMock()
+        mock_image.get_rect.return_value = mock.MagicMock()
+
+        def generator():
+            for _ in range(7):
+                yield mock_image
+
+        patcher_create_image = mock.patch('pytetris.Pause.create_image')
+        mock_create_image = patcher_create_image.start()
+        mock_create_image.return_value = generator()
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def test_draw_image_timer_is_0(self):
+        pause = Pause('images', mock.MagicMock())
+        with mock.patch.object(pause, 'timer', 1):
+            pause.draw_image()
+            self.assertEqual(pause.timer, 20)
+            self.assertEqual(pause.index, 1)
+
+    def test_draw_image_index_timer_is_20(self):
+        pause = Pause('images', mock.MagicMock())
+        pause.draw_image()
+        self.assertEqual(pause.timer, 19)
+        self.assertEqual(pause.index, 0)
+
+    def test_draw_image_index_set_to_default(self):
+        pause = Pause('images', mock.MagicMock())
+        with mock.patch.object(pause, 'timer', 1), \
+                mock.patch.object(pause, 'index', 7):
+            pause.draw_image()
+            self.assertEqual(pause.timer, 20)
+            self.assertEqual(pause.index, 1)
 
 
 if __name__ == '__main__':

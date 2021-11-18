@@ -10,7 +10,8 @@ from unittest import TestCase, main, mock
 import numpy as np
 
 from pytetris import (ImageFiles, SoundFiles, PyTetris, BLOCKSETS, Status, Score,
-    Start, GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP, Pause)
+    Start, GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP,
+    Pause, NextBlockDisplay)
 
 
 DummyBlock = namedtuple('DummyBlock', 'row, col')
@@ -145,22 +146,24 @@ class PyTetrisUpdateMovingBlockTestCase(TestCase):
     """
 
     def setUp(self):
+        patchers = [
+            mock.patch('pytetris.PyTetris.create_screens'),
+            mock.patch('pytetris.PyTetris.create_sounds')]
+        for patcher in patchers:
+            patcher.start()
+
         patcher_create_block = mock.patch('pytetris.PyTetris.create_block')
         patcher_update_matrix = mock.patch('pytetris.PyTetris.update_matrix')
         patcher_judge_ground = mock.patch('pytetris.PyTetris.judge_ground')
         patcher_correct_top = mock.patch('pytetris.PyTetris.correct_top')
         patcher_move_down = mock.patch('pytetris.PyTetris.move_down')
         patcher_set_block_center = mock.patch('pytetris.PyTetris.set_block_center')
-        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
-        patcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
         self.mock_create_block = patcher_create_block.start()
         self.mock_update_matrix = patcher_update_matrix.start()
         self.mock_judge_ground = patcher_judge_ground.start()
         self.mock_correct_top = patcher_correct_top.start()
         self.mock_move_down = patcher_move_down.start()
         self.mock_set_block_center = patcher_set_block_center.start()
-        patcher_create_screens.start()
-        patcher_create_sounds.start()
 
     def tearDown(self):
         mock.patch.stopall()
@@ -339,16 +342,18 @@ class PyTetrisUpdateGroundBlocksTestCase(TestCase):
     """
 
     def setUp(self):
-        patcher_clear_blodk = mock.patch('pytetris.PyTetris.create_block')
+        patchers = [
+            mock.patch('pytetris.PyTetris.create_screens'),
+            mock.patch('pytetris.PyTetris.create_sounds')]
+        for patcher in patchers:
+            patcher.start()
+
+        patcher_clear_block = mock.patch('pytetris.PyTetris.create_block')
         patcher_move_ground_blocks = mock.patch('pytetris.PyTetris.move_ground_blocks')
         patcher_delete_blocks = mock.patch('pytetris.PyTetris.delete_blocks')
-        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
-        patcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
-        self.mock_create_block = patcher_clear_blodk.start()
+        self.mock_create_block = patcher_clear_block.start()
         self.mock_move_ground_blocks = patcher_move_ground_blocks.start()
         self.mock_delete_blocks = patcher_delete_blocks.start()
-        patcher_create_screens.start()
-        patcher_create_sounds.start()
         self.mock_break_sound = mock.MagicMock()
         self.mock_play = mock.MagicMock()
         self.mock_break_sound.play = self.mock_play
@@ -559,10 +564,11 @@ class PyTetrisCneckAndJudgeMethosTestCase(TestCase):
             [None, None, None, None, None],
             [None, None, None, None, None]
         ]
-        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
-        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
-        patcher_create_screens.start()
-        padcher_create_sounds.start()
+        patchers = [
+            mock.patch('pytetris.PyTetris.create_screens'),
+            mock.patch('pytetris.PyTetris.create_sounds')]
+        for patcher in patchers:
+            patcher.start()
 
     def tearDown(self):
         mock.patch.stopall()
@@ -719,10 +725,12 @@ class PyTetrisMoveMethodsTestCase(TestCase):
     """
 
     def setUp(self):
-        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
-        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
-        patcher_create_screens.start()
-        padcher_create_sounds.start()
+        patchers = [
+            mock.patch('pytetris.PyTetris.create_screens'),
+            mock.patch('pytetris.PyTetris.create_sounds')]
+        for patcher in patchers:
+            patcher.start()
+
         patcher_all = mock.patch('pytetris.all')
         patcher_update_blockset_col = mock.patch('pytetris.update_blockset_col')
         patcher_update_blockset_row = mock.patch('pytetris.update_blockset_row')
@@ -856,10 +864,12 @@ class PyTetrisRotateTestCase(TestCase):
     """
 
     def setUp(self):
-        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
-        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
-        patcher_create_screens.start()
-        padcher_create_sounds.start()
+        patchers = [
+            mock.patch('pytetris.PyTetris.create_screens'),
+            mock.patch('pytetris.PyTetris.create_sounds')]
+        for patcher in patchers:
+            patcher.start()
+
         patcher_create_screens = mock.patch('pytetris.PyTetris.judge_rotate')
         self.mock_judge_rotate = patcher_create_screens.start()
         self.mock_rotate_sound = mock.MagicMock()
@@ -941,10 +951,12 @@ class PyTetrisClickTestCase(TestCase):
     """
 
     def setUp(self):
-        patcher_create_screens = mock.patch('pytetris.PyTetris.create_screens')
-        padcher_create_sounds = mock.patch('pytetris.PyTetris.create_sounds')
-        patcher_create_screens.start()
-        padcher_create_sounds.start()
+        patchers = [
+            mock.patch('pytetris.PyTetris.create_screens'),
+            mock.patch('pytetris.PyTetris.create_sounds')]
+        for patcher in patchers:
+            patcher.start()
+
         patcher_initialize = mock.patch('pytetris.PyTetris.initialize')
         self.mock_initialize = patcher_initialize.start()
 
@@ -1230,10 +1242,11 @@ class PauseTestCase(TestCase):
 
     def setUp(self):
         Pause.containers = object()
-        patcher_sprite = mock.patch('pytetris.pygame.sprite.Sprite.__init__')
-        patcher_sysfont = mock.patch('pytetris.pygame.font.SysFont')
-        patcher_sprite.start()
-        patcher_sysfont.start()
+        patchers = [
+            mock.patch('pytetris.pygame.sprite.Sprite.__init__'),
+            mock.patch('pytetris.pygame.font.SysFont')]
+        for patcher in patchers:
+            patcher.start()
 
         mock_image = mock.MagicMock()
         mock_image.get_rect.return_value = mock.MagicMock()
@@ -1269,6 +1282,65 @@ class PauseTestCase(TestCase):
             pause.draw_image()
             self.assertEqual(pause.timer, 20)
             self.assertEqual(pause.index, 1)
+
+
+class NextBlockDisplayTestCase(TestCase):
+    """Tests for NextBlockDisplay class
+    """
+
+    def setUp(self):
+        NextBlockDisplay.containers = object()
+        patchers = [
+            mock.patch('pytetris.pygame.sprite.Sprite.__init__'),
+            mock.patch('pytetris.pygame.transform.scale')]
+        for patcher in patchers:
+            patcher.start()
+
+        patcher_font_sysfont = mock.patch('pytetris.pygame.font.SysFont')
+        self.mock_render = mock.MagicMock()
+        mock_sysfont = mock.MagicMock()
+        mock_sysfont.render = self.mock_render
+        mock_font_sysfont = patcher_font_sysfont.start()
+        mock_font_sysfont.return_value = mock_sysfont
+
+        patcher_load = mock.patch('pytetris.pygame.image.load')
+        mock_load = patcher_load.start()
+        self.mock_convert = mock.MagicMock()
+        load_return = mock.MagicMock()
+        load_return.convert = self.mock_convert
+        mock_load.return_value = load_return
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def test_assemble_blocks(self):
+        next_block_display = NextBlockDisplay(
+            'test.png', mock.MagicMock())
+        self.mock_convert.reset_mock()
+        with mock.patch.object(next_block_display, 'images', {}):
+            next_block_display.assemble_blocks()
+            self.assertEqual(self.mock_convert.call_count, 28)
+            self.assertEqual(len(next_block_display.images), 7)
+
+    def test_update(self):
+        mock_blit = mock.MagicMock()
+        mock_screen = mock.MagicMock()
+        mock_screen.blit = mock_blit
+        next_block_display = NextBlockDisplay('test.png', mock_screen)
+        positions = [[0.5, 2], [1.5, 2], [2.5, 2], [3.5, 2]]
+        next_blocks = [DummyBlock(1, 1), DummyBlock(2, 1), DummyBlock(3, 1), DummyBlock(4, 1)]
+
+        with mock.patch.object(next_block_display, 'positions', positions, create=True), \
+                mock.patch.object(next_block_display, 'next_blocks', next_blocks, create=True):
+            next_block_display.update()
+        self.mock_render.assert_called_once()
+        self.assertEqual(mock_blit.call_count, 5)
+
+    def test_set_images(self):
+        green = [[1.5, 2], [1.5, 3], [2.5, 1], [2.5, 2]]
+        next_block_display = NextBlockDisplay('test.png', mock.MagicMock())
+        next_block_display.set_images(2)
+        self.assertEqual(next_block_display.positions, green)
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ import sys
 from collections import namedtuple
 from enum import Enum, auto
 from pathlib import Path
-from pygame.locals import *
+from pygame.locals import QUIT, K_DOWN, K_RIGHT, K_LEFT, K_UP, KEYDOWN, MOUSEBUTTONDOWN, Rect
 
 import numpy as np
 
@@ -746,7 +746,7 @@ def main():
         elif tetris.status == Status.REPEAT:
             gameover.update()
             gameover.draw(screen)
-            repeat.update
+            repeat.update()
             repeat.draw(screen)
 
         for event in pygame.event.get():

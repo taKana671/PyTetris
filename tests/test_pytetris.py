@@ -8,10 +8,12 @@ from pathlib import Path
 from unittest import TestCase, main, mock
 
 import numpy as np
+from pygame.locals import QUIT, K_DOWN, K_RIGHT, K_LEFT, K_UP, KEYDOWN, MOUSEBUTTONDOWN
 
 from pytetris import (ImageFiles, SoundFiles, PyTetris, BLOCKSETS, Status, Score,
     Start, GameOver, GAMEOVER_LEFT, GAMEOVER_TOP, GAMEOVER_BOUND_TOP,
     Pause, NextBlockDisplay)
+from pytetris import main as pytetris_main
 
 
 DummyBlock = namedtuple('DummyBlock', 'row, col')
@@ -1341,6 +1343,301 @@ class NextBlockDisplayTestCase(TestCase):
         next_block_display = NextBlockDisplay('test.png', mock.MagicMock())
         next_block_display.set_images(2)
         self.assertEqual(next_block_display.positions, green)
+
+
+class MainTestCase(TestCase):
+    """Tests for main
+    """
+
+    def setUp(self):
+        patchers = [
+            mock.patch('pytetris.pygame.display.set_caption'),
+            mock.patch('pytetris.pygame.time'),
+            mock.patch('pytetris.pygame.key.set_repeat'),
+            mock.patch('pytetris.pygame.display.update')]
+        for patcher in patchers:
+            patcher.start()
+
+        patcher_set_mode = mock.patch('pytetris.pygame.display.set_mode')
+        self.mock_screen = mock.MagicMock()
+        mock_set_mode = patcher_set_mode.start()
+        mock_set_mode.return_value = self.mock_screen
+
+        patcher_render_update = mock.patch('pytetris.pygame.sprite.RenderUpdates')
+        # play
+        self.mock_play_update = mock.MagicMock()
+        self.mock_play_draw = mock.MagicMock()
+        mock_play = mock.MagicMock()
+        mock_play.update = self.mock_play_update
+        mock_play.draw = self.mock_play_draw
+        # pause
+        self.mock_pause_update = mock.MagicMock()
+        self.mock_pause_draw = mock.MagicMock()
+        mock_pause = mock.MagicMock()
+        mock_pause.update = self.mock_pause_update
+        mock_pause.draw = self.mock_pause_draw
+        # start
+        self.mock_start_update = mock.MagicMock()
+        self.mock_start_draw = mock.MagicMock()
+        mock_start = mock.MagicMock()
+        mock_start.update = self.mock_start_update
+        mock_start.draw = self.mock_start_draw
+        # gameover
+        self.mock_gameover_update = mock.MagicMock()
+        self.mock_gameover_draw = mock.MagicMock()
+        mock_gameover = mock.MagicMock()
+        mock_gameover.update = self.mock_gameover_update
+        mock_gameover.draw = self.mock_gameover_draw
+        # repeat
+        self.mock_repeat_update = mock.MagicMock()
+        self.mock_repeat_draw = mock.MagicMock()
+        mock_repeat = mock.MagicMock()
+        mock_repeat.update = self.mock_repeat_update
+        mock_repeat.draw = self.mock_repeat_draw
+
+        mock_render_update = patcher_render_update.start()
+        mock_render_update.side_effect = [
+            mock_play,
+            mock_pause,
+            mock_start,
+            mock_gameover,
+            mock_repeat]
+
+        patcher_quit = mock.patch('pytetris.pygame.quit')
+        self.mock_quit = patcher_quit.start()
+
+        patcher_pytetris = mock.patch('pytetris.PyTetris')
+        self.mock_tetris_update = mock.MagicMock()
+        self.score_draw = mock.MagicMock()
+        self.mock_click = mock.MagicMock()
+        self.mock_move_right = mock.MagicMock()
+        self.mock_move_left = mock.MagicMock()
+        self.mock_move_down = mock.MagicMock()
+        self.mock_rotate = mock.MagicMock()
+
+        mock_pytetris = patcher_pytetris.start()
+        self.mock_pytetris_instance = mock.MagicMock()
+        self.mock_pytetris_instance.update = self.mock_tetris_update
+        self.mock_pytetris_instance.score.draw = self.score_draw
+        self.mock_pytetris_instance.click = self.mock_click
+        self.mock_pytetris_instance.move_right = self.mock_move_right
+        self.mock_pytetris_instance.move_left = self.mock_move_left
+        self.mock_pytetris_instance.move_down = self.mock_move_down
+        self.mock_pytetris_instance.rotate = self.mock_rotate
+        mock_pytetris.return_value = self.mock_pytetris_instance
+
+        patcher_event_get = mock.patch('pytetris.pygame.event.get')
+        self.mock_event_get = patcher_event_get.start()
+
+    def tearDown(self):
+        mock.patch.stopall()
+
+    def test_status_play(self):
+        """If tetris.status is Status.PLAY, tetris.update, tetris.score.draw,
+           play.update and play.draw must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.PLAY, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_play_update.assert_called_once()
+        self.mock_play_draw.assert_called_once_with(self.mock_screen)
+        self.mock_tetris_update.assert_called_once()
+        self.score_draw.assert_called_once()
+        self.mock_pause_update.assert_not_called()
+        self.mock_pause_draw.assert_not_called()
+        self.mock_start_update.assert_not_called()
+        self.mock_start_draw.assert_not_called()
+        self.mock_gameover_update.assert_not_called()
+        self.mock_gameover_draw.assert_not_called()
+        self.mock_repeat_update.assert_not_called()
+        self.mock_repeat_draw.assert_not_called()
+
+    def test_status_pause(self):
+        """If tetris.status is Status.PAUSE, pause.update, pause.draw,
+           must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.PAUSE, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_play_update.assert_not_called()
+        self.mock_play_draw.assert_not_called()
+        self.mock_tetris_update.assert_not_called()
+        self.score_draw.assert_not_called()
+        self.mock_pause_update.assert_called_once()
+        self.mock_pause_draw.assert_called_once_with(self.mock_screen)
+        self.mock_start_update.assert_not_called()
+        self.mock_start_draw.assert_not_called()
+        self.mock_gameover_update.assert_not_called()
+        self.mock_gameover_draw.assert_not_called()
+        self.mock_repeat_update.assert_not_called()
+        self.mock_repeat_draw.assert_not_called()
+
+    def test_status_start(self):
+        """If tetris.status is Status.START, start.update, start.draw,
+           must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.START, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_play_update.assert_not_called()
+        self.mock_play_draw.assert_not_called()
+        self.mock_tetris_update.assert_not_called()
+        self.score_draw.assert_not_called()
+        self.mock_pause_update.assert_not_called()
+        self.mock_pause_draw.assert_not_called()
+        self.mock_start_update.assert_called_once()
+        self.mock_start_draw.assert_called_once_with(self.mock_screen)
+        self.mock_gameover_update.assert_not_called()
+        self.mock_gameover_draw.assert_not_called()
+        self.mock_repeat_update.assert_not_called()
+        self.mock_repeat_draw.assert_not_called()
+
+    def test_status_gameover(self):
+        """If tetris.status is Status.GAMEOVER, play.update, tetris.score.draw,
+           play.draw and gameover.update, gameover.draw must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.GAMEOVER, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_play_update.assert_called_once()
+        self.mock_play_draw.assert_called_once_with(self.mock_screen)
+        self.mock_tetris_update.assert_not_called()
+        self.score_draw.assert_called_once()
+        self.mock_pause_update.assert_not_called()
+        self.mock_pause_draw.assert_not_called()
+        self.mock_start_update.assert_not_called()
+        self.mock_start_draw.assert_not_called()
+        self.mock_gameover_update.assert_called_once()
+        self.mock_gameover_draw.assert_called_once_with(self.mock_screen)
+        self.mock_repeat_update.assert_not_called()
+        self.mock_repeat_draw.assert_not_called()
+
+    def test_status_repeat(self):
+        """If tetris.status is Status.REPEAT, gameover.update, gameover.draw,
+           repeat.update and repeat.draw must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.REPEAT, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_play_update.assert_not_called()
+        self.mock_play_draw.assert_not_called()
+        self.mock_tetris_update.assert_not_called()
+        self.score_draw.assert_not_called()
+        self.mock_pause_update.assert_not_called()
+        self.mock_pause_draw.assert_not_called()
+        self.mock_start_update.assert_not_called()
+        self.mock_start_draw.assert_not_called()
+        self.mock_gameover_update.assert_called_once()
+        self.mock_gameover_draw.assert_called_once_with(self.mock_screen)
+        self.mock_repeat_update.assert_called_once()
+        self.mock_repeat_draw.assert_called_once_with(self.mock_screen)
+
+    def test_exit_game(self):
+        def dummy_event_get():
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', None, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+
+    def test_press_right_arrow_key(self):
+        """If RIGHT ARROW key is pressed, PyTetris.move_right method must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=KEYDOWN, key=K_RIGHT)
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.PLAY, create=True), \
+                mock.patch.object(self.mock_pytetris_instance, 'block_status', Status.DROPPING, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_move_right.assert_called_once()
+        self.mock_move_left.assert_not_called()
+        self.mock_move_down.assert_not_called()
+        self.mock_rotate.assert_not_called()
+
+    def test_press_left_arrow_key(self):
+        """If LEFT ARROW key is pressed, PyTetris.move_left method must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=KEYDOWN, key=K_LEFT)
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.PLAY, create=True), \
+                mock.patch.object(self.mock_pytetris_instance, 'block_status', Status.DROPPING, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_move_right.assert_not_called()
+        self.mock_move_left.assert_called_once()
+        self.mock_move_down.assert_not_called()
+        self.mock_rotate.assert_not_called()
+
+    def test_press_down_arrow_key(self):
+        """If DOWN ARROW key is pressed, PyTetris.move_down method must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=KEYDOWN, key=K_DOWN)
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.PLAY, create=True), \
+                mock.patch.object(self.mock_pytetris_instance, 'block_status', Status.DROPPING, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_move_right.assert_not_called()
+        self.mock_move_left.assert_not_called()
+        self.mock_move_down.assert_called_once()
+        self.mock_rotate.assert_not_called()
+
+    def test_press_up_arrow_key(self):
+        """If UP ARROW key is pressed, PyTetris.rotate method must be called.
+        """
+        def dummy_event_get():
+            yield mock.MagicMock(type=KEYDOWN, key=K_UP)
+            yield mock.MagicMock(type=QUIT)
+        self.mock_event_get.return_value = dummy_event_get()
+
+        with mock.patch.object(self.mock_pytetris_instance, 'status', Status.PLAY, create=True), \
+                mock.patch.object(self.mock_pytetris_instance, 'block_status', Status.DROPPING, create=True):
+            with self.assertRaises(SystemExit):
+                pytetris_main()
+                self.mock_quit.assert_called_once()
+        self.mock_move_right.assert_not_called()
+        self.mock_move_left.assert_not_called()
+        self.mock_move_down.assert_not_called()
+        self.mock_rotate.assert_called_once()
 
 
 if __name__ == '__main__':
